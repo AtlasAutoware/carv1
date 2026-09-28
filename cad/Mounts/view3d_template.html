@@ -1,0 +1,88 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>AtlasAutoware old car, Baseplate v2 assembly</title>
+<style>
+ html,body{margin:0;height:100%;background:#1b1d22;color:#ddd;font:13px/1.4 system-ui,sans-serif;overflow:hidden}
+ #c{position:absolute;inset:0}
+ #ui{position:absolute;left:12px;top:12px;background:rgba(20,22,26,.85);padding:10px 12px;border-radius:8px;max-width:270px}
+ #ui h1{font-size:14px;margin:0 0 6px}
+ #ui label{display:block;cursor:pointer;margin:2px 0}
+ #ui .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+ #hint{position:absolute;right:12px;bottom:12px;background:rgba(20,22,26,.85);padding:8px 10px;border-radius:8px}
+ #name{position:absolute;left:12px;bottom:12px;background:rgba(20,22,26,.85);padding:6px 10px;border-radius:8px;min-width:200px}
+ button{background:#2b2f37;color:#ddd;border:1px solid #444;border-radius:5px;padding:3px 8px;margin:2px 2px 0 0;cursor:pointer}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="ui"><h1>Old car on Baseplate v2</h1>
+ <div id="groups"></div>
+ <div style="margin-top:6px">
+  <button data-v="iso">iso</button><button data-v="top">top</button><button data-v="side">side</button><button data-v="front">front</button><button data-v="under">under</button>
+ </div>
+ <div style="margin-top:6px;opacity:.7">Grid: 40 mm along the car, 41 across. Front is +x (right in the side view).</div>
+</div>
+<div id="name">hover a part</div>
+<div id="hint">drag: orbit · right-drag / shift-drag: pan · wheel: zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const SCENE = __SCENE__;
+const COL = {mount:0xe07a1f, foot:0x3a7fd9, clipless:0xa0a0a0, envelope:0x5c5c60, chassis:0x4d8c4d, board:0x8c8c99};
+const NAMES = {mount:'printed mounts', foot:'clipless feet', clipless:'clipless pieces', envelope:'components (envelopes)', chassis:'Slash chassis model', board:'Baseplate v2 + clamps'};
+function b64f(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer}
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(devicePixelRatio);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x1b1d22);
+const camera=new THREE.PerspectiveCamera(38,1,1,5000);
+scene.add(new THREE.HemisphereLight(0xffffff,0x334,0.9));
+const dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(300,-400,600);scene.add(dl);
+const dl2=new THREE.DirectionalLight(0xffffff,0.35);dl2.position.set(-300,300,-200);scene.add(dl2);
+const groups={},meshes=[];
+const bb=new THREE.Box3();
+for(const p of SCENE.parts){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(b64f(p.v)),3));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(b64f(p.t)),1));
+  g.computeVertexNormals();
+  const isEnv=p.group==='envelope', isCh=p.group==='chassis';
+  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:COL[p.group],metalness:0.05,roughness:0.75,transparent:isEnv||isCh,opacity:isEnv?0.55:isCh?0.35:1,side:THREE.DoubleSide}));
+  m.userData=p;meshes.push(m);
+  if(!groups[p.group]){groups[p.group]=new THREE.Group();scene.add(groups[p.group]);}
+  groups[p.group].add(m);g.computeBoundingBox();bb.union(g.boundingBox);
+}
+const ctr=bb.getCenter(new THREE.Vector3()),size=bb.getSize(new THREE.Vector3()),R=size.length();
+// ground grid at the plate top (z=0) is meaningless underneath; use axes helper instead
+const ax=new THREE.AxesHelper(60);ax.position.set(bb.max.x+20,bb.min.y-20,0);scene.add(ax);
+// group toggles
+const gd=document.getElementById('groups');
+for(const k of ['mount','foot','clipless','envelope','board','chassis']){
+  if(!groups[k])continue;
+  const l=document.createElement('label');
+  l.innerHTML=`<input type=checkbox checked data-g=${k}> <span class=sw style="background:#${COL[k].toString(16).padStart(6,'0')}"></span>${NAMES[k]}`;
+  l.querySelector('input').onchange=e=>{groups[k].visible=e.target.checked};gd.appendChild(l);
+}
+// orbit
+let theta=-0.9,phi=1.05,dist=R*1.15,target=ctr.clone();
+function setView(v){const d=R*1.15;if(v==='iso'){theta=-0.9;phi=1.05}if(v==='top'){theta=-Math.PI/2;phi=0.02}if(v==='side'){theta=-Math.PI/2;phi=Math.PI/2}if(v==='front'){theta=0;phi=Math.PI/2}if(v==='under'){theta=-0.9;phi=Math.PI-0.6}dist=d;target=ctr.clone()}
+document.querySelectorAll('button[data-v]').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+function updCam(){
+  const x=target.x+dist*Math.sin(phi)*Math.cos(theta),y=target.y+dist*Math.sin(phi)*Math.sin(theta),z=target.z+dist*Math.cos(phi);
+  camera.position.set(x,y,z);camera.up.set(0,0,1);camera.lookAt(target);
+}
+let drag=null;
+canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,b:e.button,sh:e.shiftKey};canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener('pointerup',()=>drag=null);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('pointermove',e=>{
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    if(drag.b===2||drag.sh){const s=dist*0.0015;const right=new THREE.Vector3().subVectors(camera.position,target).cross(camera.up).normalize();const up=new THREE.Vector3().crossVectors(right,new THREE.Vector3().subVectors(camera.position,target)).normalize();target.addScaledVector(right,dx*s).addScaledVector(up,dy*s)}
+    else{theta-=dx*0.006;phi=Math.min(Math.PI-0.02,Math.max(0.02,phi-dy*0.006))}}
+  else pick(e)});
+canvas.addEventListener('wheel',e=>{dist*=Math.exp(e.deltaY*0.0012);dist=Math.max(R*0.15,Math.min(R*4,dist));e.preventDefault()},{passive:false});
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let hl=null;
+function pick(e){mouse.x=(e.clientX/innerWidth)*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;ray.setFromCamera(mouse,camera);
+  const hits=ray.intersectObjects(meshes.filter(m=>m.parent.visible),false);
+  if(hl){hl.material.emissive.setHex(0);hl=null}
+  if(hits.length){hl=hits[0].object;hl.material.emissive.setHex(0x333322);const p=hl.userData;document.getElementById('name').textContent=p.label+'  ['+NAMES[p.group]+']'}
+  else document.getElementById('name').textContent='hover a part'}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+(function loop(){updCam();renderer.render(scene,camera);requestAnimationFrame(loop)})();
+</script></body></html>

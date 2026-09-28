@@ -1,0 +1,270 @@
+ERC report (2026-09-07T20:14:29, Encoding UTF8)
+Report includes: Errors, Warnings
+
+***** Sheet /
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 30.48 mm): Symbol J1 [CONN2]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 63.50 mm): Symbol J2 [CONN2]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 96.52 mm): Symbol L1 [L]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 129.54 mm): Symbol C108 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 162.56 mm): Symbol D2 [LED]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 195.58 mm): Symbol C205 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 228.60 mm): Symbol C2010 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 261.62 mm): Symbol C302 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 294.64 mm): Symbol R301 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 327.66 mm): Symbol C41 [CP]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(30.48 mm, 360.68 mm): Symbol H1 [MH]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 30.48 mm): Symbol F1 [FUSE]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 63.50 mm): Symbol R2 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 96.52 mm): Symbol C101 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 129.54 mm): Symbol C109 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 162.56 mm): Symbol R105 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 195.58 mm): Symbol C206 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 228.60 mm): Symbol R204 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 261.62 mm): Symbol C303 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 294.64 mm): Symbol R302 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 327.66 mm): Symbol C42 [CP]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(73.66 mm, 360.68 mm): Symbol H2 [MH]
+[isolated_pin_label]: Label connected to only one pin
+    ; warning
+    @(102.87 mm, 63.50 mm): Global Label 'ALERT'
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 30.48 mm): Symbol D1 [D]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 63.50 mm): Symbol U2 [INA226]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 96.52 mm): Symbol C102 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 129.54 mm): Symbol R101 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 162.56 mm): Symbol U4 [AP64501]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 195.58 mm): Symbol C207 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 228.60 mm): Symbol C2011 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 261.62 mm): Symbol C304 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 294.64 mm): Symbol R303 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 327.66 mm): Symbol J4 [CONN3]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(116.84 mm, 360.68 mm): Symbol H3 [MH]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 30.48 mm): Symbol U1 [LM74700]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 63.50 mm): Symbol C3 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 96.52 mm): Symbol C103 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 129.54 mm): Symbol R102 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 162.56 mm): Symbol L2 [L]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 195.58 mm): Symbol C208 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 228.60 mm): Symbol D3 [LED]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 261.62 mm): Symbol C305 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 294.64 mm): Symbol C3010 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 327.66 mm): Symbol F2 [FUSE]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(160.02 mm, 360.68 mm): Symbol H4 [MH]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 30.48 mm): Symbol Q1 [NMOS]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 63.50 mm): Symbol R3 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 96.52 mm): Symbol C104 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 129.54 mm): Symbol R103 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 162.56 mm): Symbol C201 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 195.58 mm): Symbol C209 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 228.60 mm): Symbol R205 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 261.62 mm): Symbol C306 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 294.64 mm): Symbol R304 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(203.20 mm, 327.66 mm): Symbol J5 [CONN2]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 30.48 mm): Symbol C1 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 63.50 mm): Symbol R4 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 96.52 mm): Symbol C105 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 129.54 mm): Symbol C1010 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 162.56 mm): Symbol C202 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 195.58 mm): Symbol R201 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 228.60 mm): Symbol U5 [AP64501]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 261.62 mm): Symbol C307 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 294.64 mm): Symbol C3011 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(246.38 mm, 327.66 mm): Symbol J6 [CONN3]
+[isolated_pin_label]: Label connected to only one pin
+    ; warning
+    @(275.59 mm, 327.66 mm): Global Label 'NC_VESC_5V'
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 30.48 mm): Symbol C2 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 63.50 mm): Symbol J3 [CONN4]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 96.52 mm): Symbol C106 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 129.54 mm): Symbol R104 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 162.56 mm): Symbol C203 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 195.58 mm): Symbol R202 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 228.60 mm): Symbol L3 [L]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 261.62 mm): Symbol C308 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 294.64 mm): Symbol D4 [LED]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(289.56 mm, 327.66 mm): Symbol J7 [CONN3]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 30.48 mm): Symbol R1 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 63.50 mm): Symbol U3 [AP64501]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 96.52 mm): Symbol C107 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 129.54 mm): Symbol C1011 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 162.56 mm): Symbol C204 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 195.58 mm): Symbol R203 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 228.60 mm): Symbol C301 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 261.62 mm): Symbol C309 [C]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 294.64 mm): Symbol R305 [R]
+[lib_symbol_issues]: The current configuration does not include the symbol library 'atlaspower'
+    ; warning
+    @(332.74 mm, 327.66 mm): Symbol J8 [CONN2]
+
+ ** ERC messages: 86  Errors 0  Warnings 86
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters

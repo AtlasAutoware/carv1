@@ -1,0 +1,209 @@
+{
+  "Header": {
+    "GenerationSoftware": {
+      "Vendor": "KiCad",
+      "Application": "Pcbnew",
+      "Version": "10.0.6"
+    },
+    "CreationDate": "2026-09-07T20:30:28-04:00"
+  },
+  "GeneralSpecs": {
+    "ProjectId": {
+      "Name": "AtlasPower4S",
+      "GUID": "41746c61-7350-46f7-9765-7234532e6b69",
+      "Revision": "rev?"
+    },
+    "Size": {
+      "X": 88.1,
+      "Y": 68.1
+    },
+    "LayerNumber": 4,
+    "BoardThickness": 1.6,
+    "Finish": "None"
+  },
+  "DesignRules": [
+    {
+      "Layers": "Outer",
+      "PadToPad": 0.2,
+      "PadToTrack": 0.2,
+      "TrackToTrack": 0.2,
+      "MinLineWidth": 0.25,
+      "TrackToRegion": 0.25,
+      "RegionToRegion": 0.25
+    },
+    {
+      "Layers": "Inner",
+      "PadToPad": 0.0,
+      "PadToTrack": 0.0,
+      "TrackToTrack": 0.2,
+      "TrackToRegion": 0.25,
+      "RegionToRegion": 0.25
+    }
+  ],
+  "FilesAttributes": [
+    {
+      "Path": "AtlasPower4S-F_Cu.gtl",
+      "FileFunction": "Copper,L1,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-ground.g1",
+      "FileFunction": "Copper,L2,Inr",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-power.g2",
+      "FileFunction": "Copper,L3,Inr",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-B_Cu.gbl",
+      "FileFunction": "Copper,L4,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-F_Adhesive.gta",
+      "FileFunction": "Glue,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-B_Adhesive.gba",
+      "FileFunction": "Glue,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-F_Paste.gtp",
+      "FileFunction": "SolderPaste,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-B_Paste.gbp",
+      "FileFunction": "SolderPaste,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-F_Silkscreen.gto",
+      "FileFunction": "Legend,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-B_Silkscreen.gbo",
+      "FileFunction": "Legend,Bot",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-F_Mask.gts",
+      "FileFunction": "SolderMask,Top",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "AtlasPower4S-B_Mask.gbs",
+      "FileFunction": "SolderMask,Bot",
+      "FilePolarity": "Negative"
+    },
+    {
+      "Path": "AtlasPower4S-User_Drawings.gbr",
+      "FileFunction": "Other,User",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-User_Comments.gbr",
+      "FileFunction": "Other,User",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-User_Eco1.gbr",
+      "FileFunction": "Other,User",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-User_Eco2.gbr",
+      "FileFunction": "Other,User",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-Edge_Cuts.gm1",
+      "FileFunction": "Profile",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-F_Fab.gbr",
+      "FileFunction": "AssemblyDrawing,Top",
+      "FilePolarity": "Positive"
+    },
+    {
+      "Path": "AtlasPower4S-B_Fab.gbr",
+      "FileFunction": "AssemblyDrawing,Bot",
+      "FilePolarity": "Positive"
+    }
+  ],
+  "MaterialStackup": [
+    {
+      "Type": "Legend",
+      "Name": "Top Silk Screen"
+    },
+    {
+      "Type": "SolderPaste",
+      "Name": "Top Solder Paste"
+    },
+    {
+      "Type": "SolderMask",
+      "Thickness": 0.01,
+      "Name": "Top Solder Mask"
+    },
+    {
+      "Type": "Copper",
+      "Thickness": 0.035,
+      "Name": "F.Cu"
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 0.48,
+      "Material": "FR4",
+      "Name": "F.Cu/ground",
+      "Notes": "Type: dielectric layer 1 (from F.Cu to ground)"
+    },
+    {
+      "Type": "Copper",
+      "Thickness": 0.035,
+      "Name": "ground"
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 0.48,
+      "Material": "FR4",
+      "Name": "ground/power",
+      "Notes": "Type: dielectric layer 2 (from ground to power)"
+    },
+    {
+      "Type": "Copper",
+      "Thickness": 0.035,
+      "Name": "power"
+    },
+    {
+      "Type": "Dielectric",
+      "Thickness": 0.48,
+      "Material": "FR4",
+      "Name": "power/B.Cu",
+      "Notes": "Type: dielectric layer 3 (from power to B.Cu)"
+    },
+    {
+      "Type": "Copper",
+      "Thickness": 0.035,
+      "Name": "B.Cu"
+    },
+    {
+      "Type": "SolderMask",
+      "Thickness": 0.01,
+      "Name": "Bottom Solder Mask"
+    },
+    {
+      "Type": "SolderPaste",
+      "Name": "Bottom Solder Paste"
+    },
+    {
+      "Type": "Legend",
+      "Name": "Bottom Silk Screen"
+    }
+  ]
+}

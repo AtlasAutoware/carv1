@@ -1,0 +1,777 @@
+** Drc report for AtlasPower4S.kicad_pcb **
+** Created on 2026-09-07T20:30:27 **
+** Report includes: Errors, Warnings **
+
+** Found 166 DRC violations **
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.1853 mm)
+    Local override; error
+    @(134.1500 mm, 82.5000 mm): Track [V3V3_EXT] on F.Cu, length 1.4000 mm
+    @(133.8000 mm, 83.0000 mm): Via [GND] on F.Cu - B.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.1853 mm)
+    Local override; error
+    @(133.8000 mm, 83.0000 mm): Via [GND] on F.Cu - B.Cu
+    @(134.1500 mm, 83.5000 mm): Track [SDA] on F.Cu, length 1.4000 mm
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0500 mm)
+    Local override; error
+    @(134.1500 mm, 82.5000 mm): Pad 9 [V3V3_EXT] of U2 on F.Cu
+    @(133.8000 mm, 83.0000 mm): Via [GND] on F.Cu - B.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(147.8000 mm, 78.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(148.4750 mm, 79.1350 mm): Pad 6 [COMP1] of U3 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(144.2000 mm, 98.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(143.5250 mm, 97.8650 mm): Pad 2 [VIN] of U4 on F.Cu
+[shorting_items]: Items shorting two nets (nets GND and VIN)
+    Local override; error
+    @(137.5000 mm, 74.2000 mm): Via [GND] on F.Cu - B.Cu
+    @(137.5000 mm, 75.8500 mm): Pad 1 [VIN] of C102 on F.Cu
+[shorting_items]: Items shorting two nets (nets GND and VOUT_10V)
+    Local override; error
+    @(167.5000 mm, 83.6910 mm): Via [GND] on F.Cu - B.Cu
+    @(167.5000 mm, 85.3410 mm): Pad 1 [VOUT_10V] of C106 on F.Cu
+[shorting_items]: Items shorting two nets (nets GND and VOUT_10V)
+    Local override; error
+    @(167.5000 mm, 78.9410 mm): Via [GND] on F.Cu - B.Cu
+    @(167.5000 mm, 80.5910 mm): Pad 1 [VOUT_10V] of C105 on F.Cu
+[shorting_items]: Items shorting two nets (nets GND and VOUT_10V)
+    Local override; error
+    @(167.5000 mm, 74.1910 mm): Via [GND] on F.Cu - B.Cu
+    @(167.5000 mm, 75.8410 mm): Pad 1 [VOUT_10V] of C104 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(144.2000 mm, 118.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(143.5250 mm, 117.8650 mm): Pad 2 [VIN] of U5 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(147.8000 mm, 118.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(148.4750 mm, 119.1350 mm): Pad 6 [COMP3] of U5 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(147.8000 mm, 98.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(148.4750 mm, 99.1350 mm): Pad 6 [COMP2] of U4 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0350 mm)
+    Local override; error
+    @(144.2000 mm, 78.5000 mm): Via [GND] on F.Cu - B.Cu
+    @(143.5250 mm, 77.8650 mm): Pad 2 [VIN] of U3 on F.Cu
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.0500 mm)
+    Local override; error
+    @(129.8500 mm, 82.5000 mm): Pad 2 [VIN] of U2 on F.Cu
+    @(130.2000 mm, 83.0000 mm): Via [ALERT] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets GND and VIN)
+    Local override; error
+    @(137.5000 mm, 97.9850 mm): Via [GND] on F.Cu - B.Cu
+    @(137.5000 mm, 99.6350 mm): Pad 1 [VIN] of C203 on F.Cu
+[shorting_items]: Items shorting two nets (nets GND and VIN)
+    Local override; error
+    @(137.5000 mm, 93.2350 mm): Via [GND] on F.Cu - B.Cu
+    @(137.5000 mm, 94.8850 mm): Pad 1 [VIN] of C202 on F.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_7V4 and GND)
+    Local override; error
+    @(167.5000 mm, 107.5910 mm): Pad 1 [VOUT_7V4] of C206 on F.Cu
+    @(167.5000 mm, 105.9410 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_7V4 and GND)
+    Local override; error
+    @(167.5000 mm, 98.0910 mm): Pad 1 [VOUT_7V4] of C204 on F.Cu
+    @(167.5000 mm, 96.4410 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets GND and VIN)
+    Local override; error
+    @(137.5000 mm, 118.0450 mm): Via [GND] on F.Cu - B.Cu
+    @(137.5000 mm, 119.6950 mm): Pad 1 [VIN] of C302 on F.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_7V4 and GND)
+    Local override; error
+    @(167.5000 mm, 102.8410 mm): Pad 1 [VOUT_7V4] of C205 on F.Cu
+    @(167.5000 mm, 101.1910 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_5V and GND)
+    Local override; error
+    @(167.1000 mm, 116.2400 mm): Pad 1 [VOUT_5V] of C304 on F.Cu
+    @(167.1000 mm, 114.5900 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets GND and VOUT_5V)
+    Local override; error
+    @(167.1000 mm, 119.3400 mm): Via [GND] on F.Cu - B.Cu
+    @(167.1000 mm, 120.9900 mm): Pad 1 [VOUT_5V] of C305 on F.Cu
+[shorting_items]: Items shorting two nets (nets VIN and GND)
+    Local override; error
+    @(137.5000 mm, 124.4450 mm): Pad 1 [VIN] of C303 on F.Cu
+    @(137.5000 mm, 122.7950 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_5V and GND)
+    Local override; error
+    @(167.5000 mm, 125.7400 mm): Pad 1 [VOUT_5V] of C306 on F.Cu
+    @(167.5000 mm, 124.0900 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VIN and GND)
+    Local override; error
+    @(137.5000 mm, 82.7100 mm): Pad 1 [VIN] of C103 on F.Cu
+    @(137.5000 mm, 81.0600 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_10V and GND)
+    Local override; error
+    @(167.5000 mm, 80.5910 mm): Pad 1 [VOUT_10V] of C105 on F.Cu
+    @(167.5000 mm, 82.3910 mm): Pad 2 [GND] of C106 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 82.7100 mm): Pad 1 [VIN] of C103 on F.Cu
+    @(137.5000 mm, 81.0600 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 80.5910 mm): Pad 1 [VOUT_10V] of C105 on F.Cu
+    @(167.5000 mm, 78.9410 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 85.3410 mm): Pad 1 [VOUT_10V] of C106 on F.Cu
+    @(167.5000 mm, 83.6910 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 77.8650 mm): Pad 2 [VIN] of U3 on F.Cu
+    @(144.2000 mm, 78.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 79.1350 mm): Pad 3 [EN1] of U3 on F.Cu
+    @(144.2000 mm, 78.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 125.7400 mm): Pad 1 [VOUT_5V] of C306 on F.Cu
+    @(167.5000 mm, 124.0900 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_5V and GND)
+    Local override; error
+    @(167.1000 mm, 120.9900 mm): Pad 1 [VOUT_5V] of C305 on F.Cu
+    @(167.5000 mm, 122.7900 mm): Pad 2 [GND] of C306 on F.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_5V and GND)
+    Local override; error
+    @(167.1000 mm, 116.2400 mm): Pad 1 [VOUT_5V] of C304 on F.Cu
+    @(167.1000 mm, 118.0400 mm): Pad 2 [GND] of C305 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.1000 mm, 120.9900 mm): Pad 1 [VOUT_5V] of C305 on F.Cu
+    @(167.1000 mm, 119.3400 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 124.4450 mm): Pad 1 [VIN] of C303 on F.Cu
+    @(137.5000 mm, 122.7950 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.1000 mm, 116.2400 mm): Pad 1 [VOUT_5V] of C304 on F.Cu
+    @(167.1000 mm, 114.5900 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 119.6950 mm): Pad 1 [VIN] of C302 on F.Cu
+    @(137.5000 mm, 118.0450 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VIN and GND)
+    Local override; error
+    @(137.5000 mm, 119.6950 mm): Pad 1 [VIN] of C302 on F.Cu
+    @(137.5000 mm, 121.4950 mm): Pad 2 [GND] of C303 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(148.4750 mm, 79.1350 mm): Pad 6 [COMP1] of U3 on F.Cu
+    @(147.8000 mm, 78.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 117.8650 mm): Pad 2 [VIN] of U5 on F.Cu
+    @(144.2000 mm, 118.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 119.1350 mm): Pad 3 [EN3] of U5 on F.Cu
+    @(144.2000 mm, 118.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 107.5910 mm): Pad 1 [VOUT_7V4] of C206 on F.Cu
+    @(167.5000 mm, 105.9410 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_7V4 and GND)
+    Local override; error
+    @(167.5000 mm, 102.8410 mm): Pad 1 [VOUT_7V4] of C205 on F.Cu
+    @(167.5000 mm, 104.6410 mm): Pad 2 [GND] of C206 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 102.8410 mm): Pad 1 [VOUT_7V4] of C205 on F.Cu
+    @(167.5000 mm, 101.1910 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_7V4 and GND)
+    Local override; error
+    @(167.5000 mm, 98.0910 mm): Pad 1 [VOUT_7V4] of C204 on F.Cu
+    @(167.5000 mm, 99.8910 mm): Pad 2 [GND] of C205 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 98.0910 mm): Pad 1 [VOUT_7V4] of C204 on F.Cu
+    @(167.5000 mm, 96.4410 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 99.6350 mm): Pad 1 [VIN] of C203 on F.Cu
+    @(137.5000 mm, 97.9850 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 97.8650 mm): Pad 2 [VIN] of U4 on F.Cu
+    @(144.2000 mm, 98.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(148.4750 mm, 119.1350 mm): Pad 6 [COMP3] of U5 on F.Cu
+    @(147.8000 mm, 118.5000 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VOUT_10V and GND)
+    Local override; error
+    @(167.5000 mm, 75.8410 mm): Pad 1 [VOUT_10V] of C104 on F.Cu
+    @(167.5000 mm, 77.6410 mm): Pad 2 [GND] of C105 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(143.5250 mm, 99.1350 mm): Pad 3 [EN2] of U4 on F.Cu
+    @(144.2000 mm, 98.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 75.8500 mm): Pad 1 [VIN] of C102 on F.Cu
+    @(137.5000 mm, 74.2000 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets V3V3_EXT and GND)
+    Local override; error
+    @(137.0500 mm, 77.8050 mm): Pad 1 [V3V3_EXT] of C3 on F.Cu
+    @(137.5000 mm, 79.7600 mm): Pad 2 [GND] of C103 on F.Cu
+[shorting_items]: Items shorting two nets (nets V3V3_EXT and VIN)
+    Local override; error
+    @(137.0500 mm, 77.8050 mm): Pad 1 [V3V3_EXT] of C3 on F.Cu
+    @(137.5000 mm, 75.8500 mm): Pad 1 [VIN] of C102 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(137.5000 mm, 94.8850 mm): Pad 1 [VIN] of C202 on F.Cu
+    @(137.5000 mm, 93.2350 mm): Via [GND] on F.Cu - B.Cu
+[shorting_items]: Items shorting two nets (nets VIN and GND)
+    Local override; error
+    @(137.5000 mm, 94.8850 mm): Pad 1 [VIN] of C202 on F.Cu
+    @(137.5000 mm, 96.6850 mm): Pad 2 [GND] of C203 on F.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2000 mm)
+    Rule: board setup constraints hole; error
+    @(129.8500 mm, 82.5000 mm): Pad 2 [VIN] of U2 on F.Cu
+    @(130.2000 mm, 83.0000 mm): Via [ALERT] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1500 mm)
+    Rule: board setup constraints hole; error
+    @(167.5000 mm, 75.8410 mm): Pad 1 [VOUT_10V] of C104 on F.Cu
+    @(167.5000 mm, 74.1910 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2000 mm)
+    Rule: board setup constraints hole; error
+    @(129.8500 mm, 83.5000 mm): Pad 4 [GND] of U2 on F.Cu
+    @(130.2000 mm, 83.0000 mm): Via [ALERT] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1850 mm)
+    Rule: board setup constraints hole; error
+    @(148.4750 mm, 99.1350 mm): Pad 6 [COMP2] of U4 on F.Cu
+    @(147.8000 mm, 98.5000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2000 mm)
+    Rule: board setup constraints hole; error
+    @(134.1500 mm, 83.5000 mm): Pad 7 [SDA] of U2 on F.Cu
+    @(133.8000 mm, 83.0000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.2000 mm)
+    Rule: board setup constraints hole; error
+    @(134.1500 mm, 82.5000 mm): Pad 9 [V3V3_EXT] of U2 on F.Cu
+    @(133.8000 mm, 83.0000 mm): Via [GND] on F.Cu - B.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+    @(143.5250 mm, 77.8650 mm): Pad 2 [VIN] of U3 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer B.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(164.0000 mm, 68.0000 mm): Zone 'VOUT_10V' [VOUT_10V] on B.Cu, priority 20
+    @(175.9000 mm, 90.7360 mm): PTH pad 1 [VOUT_10V] of F2
+[starved_thermal]: Thermal relief connection to zone incomplete (layer B.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(164.0000 mm, 68.0000 mm): Zone 'VOUT_10V' [VOUT_10V] on B.Cu, priority 20
+    @(175.9000 mm, 90.7360 mm): PTH pad 1 [VOUT_10V] of F2
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+    @(143.5250 mm, 97.8650 mm): Pad 2 [VIN] of U4 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(160.0000 mm, 71.0000 mm): Zone 'VOUT_10V' [VOUT_10V] on F.Cu, priority 12
+    @(175.9000 mm, 90.7360 mm): PTH pad 1 [VOUT_10V] of F2
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 70.0000 mm): Zone 'VBAT' [VBAT] on F.Cu, priority 5
+    @(125.7950 mm, 93.9050 mm): Pad 5 [VBAT] of Q1 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+    @(143.5250 mm, 117.8650 mm): Pad 2 [VIN] of U5 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 70.0000 mm): Zone 'VBAT' [VBAT] on F.Cu, priority 5
+    @(125.7950 mm, 93.9050 mm): Pad 5 [VBAT] of Q1 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer B.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on B.Cu, priority 0
+    @(188.0000 mm, 108.6150 mm): PTH pad 1 [GND] of J6
+[starved_thermal]: Thermal relief connection to zone incomplete (layer B.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on B.Cu, priority 0
+    @(189.0250 mm, 117.3850 mm): PTH pad 1 [GND] of J7
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(129.4500 mm, 80.0000 mm): Pad 2 [GND] of C2 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(129.8500 mm, 83.5000 mm): Pad 4 [GND] of U2 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(134.1500 mm, 83.0000 mm): Pad 8 [GND] of U2 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(138.9500 mm, 77.8050 mm): Pad 2 [GND] of C3 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(144.5000 mm, 68.2600 mm): Pad 1 [GND] of J3 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(141.3020 mm, 87.2900 mm): Pad 2 [GND] of C109 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(137.7520 mm, 88.7650 mm): Pad 2 [GND] of C1011 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(171.8370 mm, 79.0875 mm): Pad 2 [GND] of R105 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(137.5000 mm, 91.9350 mm): Pad 2 [GND] of C202 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(143.2500 mm, 106.5000 mm): Pad 2 [GND] of C209 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(138.4080 mm, 103.6400 mm): Pad 2 [GND] of C2011 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(172.5000 mm, 99.0875 mm): Pad 2 [GND] of R205 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(141.1480 mm, 128.4500 mm): Pad 2 [GND] of C309 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(137.5980 mm, 128.4500 mm): Pad 2 [GND] of C3011 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(172.0650 mm, 119.0875 mm): Pad 2 [GND] of R305 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.5000 mm, 99.8910 mm): Pad 2 [GND] of C205 on F.Cu
+    @(167.5000 mm, 98.0910 mm): Pad 1 [VOUT_7V4] of C204 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(137.0500 mm, 77.8050 mm): Pad 1 [V3V3_EXT] of C3 on F.Cu
+    @(137.5000 mm, 79.7600 mm): Pad 2 [GND] of C103 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(137.5000 mm, 75.8500 mm): Pad 1 [VIN] of C102 on F.Cu
+    @(137.0500 mm, 77.8050 mm): Pad 1 [V3V3_EXT] of C3 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(137.5000 mm, 94.8850 mm): Pad 1 [VIN] of C202 on F.Cu
+    @(137.5000 mm, 96.6850 mm): Pad 2 [GND] of C203 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.5000 mm, 75.8410 mm): Pad 1 [VOUT_10V] of C104 on F.Cu
+    @(167.5000 mm, 77.6410 mm): Pad 2 [GND] of C105 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.5000 mm, 80.5910 mm): Pad 1 [VOUT_10V] of C105 on F.Cu
+    @(167.5000 mm, 82.3910 mm): Pad 2 [GND] of C106 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.5000 mm, 104.6410 mm): Pad 2 [GND] of C206 on F.Cu
+    @(167.5000 mm, 102.8410 mm): Pad 1 [VOUT_7V4] of C205 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(137.5000 mm, 119.6950 mm): Pad 1 [VIN] of C302 on F.Cu
+    @(137.5000 mm, 121.4950 mm): Pad 2 [GND] of C303 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.1000 mm, 116.2400 mm): Pad 1 [VOUT_5V] of C304 on F.Cu
+    @(167.1000 mm, 118.0400 mm): Pad 2 [GND] of C305 on F.Cu
+[solder_mask_bridge]: Front solder mask aperture bridges items with different nets
+    Rule: board setup solder mask min width; error
+    @(167.1000 mm, 120.9900 mm): Pad 1 [VOUT_5V] of C305 on F.Cu
+    @(167.5000 mm, 122.7900 mm): Pad 2 [GND] of C306 on F.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(130.2000 mm, 83.0000 mm): Via [ALERT] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(110.0000 mm, 69.0000 mm): Via [GND] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(109.5500 mm, 93.7500 mm): Via [GND] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(190.4500 mm, 101.4520 mm): Via [GND] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(181.2850 mm, 124.6600 mm): Via [GND] on F.Cu - B.Cu
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on power, priority 0
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(126.0000 mm, 76.0000 mm): Zone 'VIN_PRE' [VIN_PRE] on F.Cu, priority 15
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 70.0000 mm): Zone 'VBAT' [VBAT] on F.Cu, priority 5
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 74.0000 mm): Zone 'SW1' [SW1] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 74.0000 mm): Zone 'SW1' [SW1] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 94.0000 mm): Zone 'SW2' [SW2] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 94.0000 mm): Zone 'SW2' [SW2] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 114.0000 mm): Zone 'SW3' [SW3] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(145.0000 mm, 114.0000 mm): Zone 'SW3' [SW3] on F.Cu, priority 30
+[isolated_copper]: Isolated copper fill
+    Local override; warning
+    @(160.0000 mm, 91.0000 mm): Zone 'VOUT_7V4' [VOUT_7V4] on F.Cu, priority 12
+[hole_to_hole]: Drilled hole too close to other hole (board setup constraints min 0.2500 mm; actual 0.2000 mm)
+    Rule: board setup constraints; warning
+    @(129.8500 mm, 84.8000 mm): Via [GND] on F.Cu - B.Cu
+    @(129.8500 mm, 85.3000 mm): Via [GND] on F.Cu - B.Cu
+[hole_to_hole]: Drilled hole too close to other hole (board setup constraints min 0.2500 mm; actual 0.1000 mm)
+    Rule: board setup constraints; warning
+    @(134.1500 mm, 81.1000 mm): Via [GND] on F.Cu - B.Cu
+    @(134.1500 mm, 80.7000 mm): Via [GND] on F.Cu - B.Cu
+[lib_footprint_mismatch]: Footprint 'TerminalBlock_Phoenix_MKDS-3-2-5.08_1x02_P5.08mm_Horizontal' does not match copy in library 'TerminalBlock_Phoenix'
+    Local override; warning
+    @(114.6300 mm, 92.4500 mm): Footprint J1
+[lib_footprint_mismatch]: Footprint 'D_SMB' does not match copy in library 'Diode_SMD'
+    Local override; warning
+    @(121.0000 mm, 120.0000 mm): Footprint D1
+[lib_footprint_mismatch]: Footprint 'R_2512_6332Metric' does not match copy in library 'Resistor_SMD'
+    Local override; warning
+    @(132.0000 mm, 92.0000 mm): Footprint R2
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 74.3750 mm): Footprint C102
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 81.2350 mm): Footprint C103
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 74.3660 mm): Footprint C104
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 79.1160 mm): Footprint C105
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 83.8660 mm): Footprint C106
+[lib_footprint_mismatch]: Footprint 'LED_0805_2012Metric' does not match copy in library 'LED_SMD'
+    Local override; warning
+    @(171.7180 mm, 76.0000 mm): Footprint D2
+[lib_footprint_mismatch]: Footprint 'R_0805_2012Metric' does not match copy in library 'Resistor_SMD'
+    Local override; warning
+    @(171.8370 mm, 80.0000 mm): Footprint R105
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 93.4100 mm): Footprint C202
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 98.1600 mm): Footprint C203
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 96.6160 mm): Footprint C204
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 101.3660 mm): Footprint C205
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 106.1160 mm): Footprint C206
+[lib_footprint_mismatch]: Footprint 'LED_0805_2012Metric' does not match copy in library 'LED_SMD'
+    Local override; warning
+    @(172.5000 mm, 96.0140 mm): Footprint D3
+[lib_footprint_mismatch]: Footprint 'R_0805_2012Metric' does not match copy in library 'Resistor_SMD'
+    Local override; warning
+    @(172.5000 mm, 100.0000 mm): Footprint R205
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 118.2200 mm): Footprint C302
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(137.5000 mm, 122.9700 mm): Footprint C303
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.1000 mm, 114.7650 mm): Footprint C304
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.1000 mm, 119.5150 mm): Footprint C305
+[lib_footprint_mismatch]: Footprint 'C_1210_3225Metric' does not match copy in library 'Capacitor_SMD'
+    Local override; warning
+    @(167.5000 mm, 124.2650 mm): Footprint C306
+[lib_footprint_mismatch]: Footprint 'LED_0805_2012Metric' does not match copy in library 'LED_SMD'
+    Local override; warning
+    @(169.8000 mm, 116.0000 mm): Footprint D4
+[lib_footprint_mismatch]: Footprint 'R_0805_2012Metric' does not match copy in library 'Resistor_SMD'
+    Local override; warning
+    @(172.0650 mm, 120.0000 mm): Footprint R305
+[lib_footprint_mismatch]: Footprint 'BarrelJack_Horizontal' does not match copy in library 'Connector_BarrelJack'
+    Local override; warning
+    @(174.9370 mm, 82.4060 mm): Footprint J4
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(129.5044 mm, 115.6300 mm): Segment of C41 on F.Silkscreen
+    @(137.5000 mm, 116.7450 mm): Pad 2 [GND] of C302 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(137.7729 mm, 125.6350 mm): Segment of R304 on F.Silkscreen
+    @(137.5000 mm, 124.4450 mm): Pad 1 [VIN] of C303 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(137.7387 mm, 78.5400 mm): Segment of C3 on F.Silkscreen
+    @(137.5000 mm, 79.7600 mm): Pad 2 [GND] of C103 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(137.7387 mm, 77.0700 mm): Segment of C3 on F.Silkscreen
+    @(137.5000 mm, 75.8500 mm): Pad 1 [VIN] of C102 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(137.6459 mm, 83.9000 mm): Segment of R104 on F.Silkscreen
+    @(137.5000 mm, 82.7100 mm): Pad 1 [VIN] of C103 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(137.7729 mm, 100.8250 mm): Segment of R204 on F.Silkscreen
+    @(137.5000 mm, 99.6350 mm): Pad 1 [VIN] of C203 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(170.7580 mm, 77.6850 mm): Segment of D2 on F.Silkscreen
+    @(171.7180 mm, 76.9375 mm): Pad 1 [LED1] of D2 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(168.8400 mm, 117.6850 mm): Segment of D4 on F.Silkscreen
+    @(169.8000 mm, 116.9375 mm): Pad 1 [LED3] of D4 on F.Cu
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(171.5400 mm, 97.6990 mm): Segment of D3 on F.Silkscreen
+    @(172.5000 mm, 96.9515 mm): Pad 1 [LED2] of D3 on F.Cu
+
+** Found 38 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(150.0120 mm, 86.5000 mm): Track [COMP1] on F.Cu, length 1.4000 mm
+    @(142.9695 mm, 86.8800 mm): Pad 1 [COMP1] of R103 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(150.0120 mm, 86.5000 mm): Track [COMP1] on F.Cu, length 1.4000 mm
+    @(148.4750 mm, 79.1350 mm): Pad 6 [COMP1] of U3 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(144.9175 mm, 106.5000 mm): Pad 1 [COMP2] of R203 on F.Cu
+    @(151.9600 mm, 106.5000 mm): Track [COMP2] on F.Cu, length 1.4000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(148.4750 mm, 99.1350 mm): Pad 6 [COMP2] of U4 on F.Cu
+    @(151.9600 mm, 106.5000 mm): Track [COMP2] on F.Cu, length 1.4000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(149.8580 mm, 126.5000 mm): Track [COMP3] on F.Cu, length 1.4000 mm
+    @(142.8155 mm, 126.5000 mm): Pad 1 [COMP3] of R303 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(149.8580 mm, 126.5000 mm): Track [COMP3] on F.Cu, length 1.4000 mm
+    @(148.4750 mm, 119.1350 mm): Pad 6 [COMP3] of U5 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(138.7855 mm, 84.6350 mm): Pad 2 [EN1] of R104 on F.Cu
+    @(135.8520 mm, 88.7650 mm): Pad 1 [EN1] of C1011 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(143.5250 mm, 79.1350 mm): Pad 3 [EN1] of U3 on F.Cu
+    @(138.7855 mm, 84.6350 mm): Pad 2 [EN1] of R104 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(136.5080 mm, 103.6400 mm): Pad 1 [EN2] of C2011 on F.Cu
+    @(138.9125 mm, 101.5600 mm): Pad 2 [EN2] of R204 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(138.9125 mm, 126.3700 mm): Track [EN3] on F.Cu, length 1.4000 mm
+    @(135.6980 mm, 128.4500 mm): Pad 1 [EN3] of C3011 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(110.0000 mm, 69.0000 mm): Via [GND] on F.Cu - B.Cu
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(108.0000 mm, 68.0000 mm): Zone 'GND' [GND] on F.Cu, priority 1
+    @(121.8625 mm, 83.0000 mm): Pad 2 [GND] of U1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(116.0000 mm, 83.9500 mm): Track [IDEAL_EN] on F.Cu, length 5.8625 mm
+    @(118.9125 mm, 85.5500 mm): Pad 2 [IDEAL_EN] of R1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(120.3300 mm, 90.0950 mm): Pad 1 [IDEAL_GATE] of Q1 on F.Cu
+    @(124.1375 mm, 83.0000 mm): Pad 5 [IDEAL_GATE] of U1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(192.2500 mm, 90.7360 mm): PTH pad 2 [LIDAR_V] of F2
+    @(184.9800 mm, 90.7360 mm): Track [LIDAR_V] on F.Cu, length 0.3900 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(134.1500 mm, 84.0000 mm): Pad 6 [SCL] of U2 on F.Cu
+    @(140.4695 mm, 84.8300 mm): Pad 1 [SCL] of R4 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(140.4695 mm, 84.8300 mm): Pad 1 [SCL] of R4 on F.Cu
+    @(147.5000 mm, 68.2600 mm): Pad 4 [SCL] of J3 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(135.5500 mm, 83.5000 mm): Track [SDA] on F.Cu, length 3.1850 mm
+    @(146.5000 mm, 68.2600 mm): Pad 3 [SDA] of J3 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(139.4020 mm, 87.2900 mm): Pad 1 [SS1] of C109 on F.Cu
+    @(143.5250 mm, 80.4050 mm): Pad 4 [SS1] of U3 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(139.2480 mm, 128.4500 mm): Pad 1 [SS3] of C309 on F.Cu
+    @(143.5250 mm, 120.4050 mm): Pad 4 [SS3] of U5 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(145.0000 mm, 74.0000 mm): Zone 'SW1' [SW1] on F.Cu, priority 30
+    @(143.4500 mm, 74.6700 mm): Pad 2 [SW1] of C101 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(145.0000 mm, 94.0000 mm): Zone 'SW2' [SW2] on F.Cu, priority 30
+    @(143.4500 mm, 94.5000 mm): Pad 2 [SW2] of C201 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(145.0000 mm, 114.0000 mm): Zone 'SW3' [SW3] on F.Cu, priority 30
+    @(143.4500 mm, 114.5000 mm): Pad 2 [SW3] of C301 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(134.1500 mm, 82.5000 mm): Track [V3V3_EXT] on F.Cu, length 1.4000 mm
+    @(137.7345 mm, 86.6850 mm): Pad 2 [V3V3_EXT] of R3 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(137.7345 mm, 86.6850 mm): Pad 2 [V3V3_EXT] of R3 on F.Cu
+    @(142.2945 mm, 84.8300 mm): Pad 2 [V3V3_EXT] of R4 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(145.5000 mm, 68.2600 mm): Pad 2 [V3V3_EXT] of J3 on F.Cu
+    @(135.5500 mm, 77.8050 mm): Track [V3V3_EXT] on F.Cu, length 1.5000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(129.8500 mm, 82.5000 mm): Pad 2 [VIN] of U2 on F.Cu
+    @(132.0000 mm, 89.0375 mm): Pad 2 [VIN] of R2 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(132.0000 mm, 89.0375 mm): Pad 2 [VIN] of R2 on F.Cu
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(134.0000 mm, 68.0000 mm): Zone 'VIN' [VIN] on F.Cu, priority 8
+    @(129.6000 mm, 110.2700 mm): Pad 1 [VIN] of C41 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(120.3300 mm, 91.3650 mm): Pad 2 [VIN_PRE] of Q1 on F.Cu
+    @(120.3300 mm, 92.6350 mm): Pad 3 [VIN_PRE] of Q1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(120.3300 mm, 92.6350 mm): Pad 3 [VIN_PRE] of Q1 on F.Cu
+    @(120.3300 mm, 93.9050 mm): Pad 4 [VIN_PRE] of Q1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(124.1375 mm, 83.9500 mm): Pad 4 [VIN_PRE] of U1 on F.Cu
+    @(120.3300 mm, 91.3650 mm): Pad 2 [VIN_PRE] of Q1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(126.0000 mm, 76.0000 mm): Zone 'VIN_PRE' [VIN_PRE] on F.Cu, priority 15
+    @(124.1375 mm, 83.9500 mm): Pad 4 [VIN_PRE] of U1 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(160.0000 mm, 71.0000 mm): Zone 'VOUT_10V' [VOUT_10V] on F.Cu, priority 12
+    @(147.9075 mm, 84.0000 mm): Pad 1 [VOUT_10V] of R101 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(147.9075 mm, 124.0000 mm): Pad 1 [VOUT_5V] of R301 on F.Cu
+    @(160.0000 mm, 111.0000 mm): Zone 'VOUT_5V' [VOUT_5V] on F.Cu, priority 12
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(160.0000 mm, 91.0000 mm): Zone 'VOUT_7V4' [VOUT_7V4] on F.Cu, priority 12
+    @(147.9075 mm, 104.0000 mm): Pad 1 [VOUT_7V4] of R201 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(160.0000 mm, 91.0000 mm): Zone 'VOUT_7V4' [VOUT_7V4] on F.Cu, priority 12
+    @(173.3500 mm, 111.5040 mm): Pad 1 [VOUT_7V4] of C42 on F.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(173.3500 mm, 111.5040 mm): Pad 1 [VOUT_7V4] of C42 on F.Cu
+    @(188.0000 mm, 111.1550 mm): PTH pad 2 [VOUT_7V4] of J6
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

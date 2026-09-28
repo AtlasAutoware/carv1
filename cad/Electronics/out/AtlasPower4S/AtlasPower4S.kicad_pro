@@ -1,0 +1,8 @@
+{
+  "board": {"design_settings": {"defaults": {}}},
+  "meta": {"filename": "AtlasPower4S.kicad_pro", "version": 1},
+  "libraries": {"pinned_footprint_libs": [], "pinned_symbol_libs": []},
+  "schematic": {"legacy_lib_dir": "", "legacy_lib_list": []},
+  "sheets": [["59a755c7-1c70-b43f-8e7c-0b4c26551c29", "Root"]],
+  "text_variables": {}
+}

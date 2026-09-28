@@ -1,0 +1,591 @@
+{
+ "holes": {
+  "A1": [
+   115.0,
+   60.0
+  ],
+  "B1": [
+   115.0,
+   20.0
+  ],
+  "C1": [
+   115.0,
+   -20.0
+  ],
+  "D1": [
+   115.0,
+   -60.0
+  ],
+  "A2": [
+   75.0,
+   60.0
+  ],
+  "B2": [
+   75.0,
+   20.0
+  ],
+  "C2": [
+   75.0,
+   -20.0
+  ],
+  "D2": [
+   75.0,
+   -60.0
+  ],
+  "A3": [
+   35.0,
+   60.0
+  ],
+  "B3": [
+   35.0,
+   20.0
+  ],
+  "C3": [
+   35.0,
+   -20.0
+  ],
+  "D3": [
+   35.0,
+   -60.0
+  ],
+  "A4": [
+   -5.0,
+   60.0
+  ],
+  "B4": [
+   -5.0,
+   20.0
+  ],
+  "C4": [
+   -5.0,
+   -20.0
+  ],
+  "D4": [
+   -5.0,
+   -60.0
+  ],
+  "A5": [
+   -45.0,
+   60.0
+  ],
+  "B5": [
+   -45.0,
+   20.0
+  ],
+  "C5": [
+   -45.0,
+   -20.0
+  ],
+  "D5": [
+   -45.0,
+   -60.0
+  ],
+  "A6": [
+   -85.0,
+   60.0
+  ],
+  "B6": [
+   -85.0,
+   20.0
+  ],
+  "C6": [
+   -85.0,
+   -20.0
+  ],
+  "D6": [
+   -85.0,
+   -60.0
+  ],
+  "A8": [
+   -185.0,
+   60.0
+  ],
+  "B8": [
+   -185.0,
+   20.0
+  ],
+  "C8": [
+   -185.0,
+   -20.0
+  ],
+  "D8": [
+   -185.0,
+   -60.0
+  ]
+ },
+ "claims": {
+  "B1": [
+   "rplidar_c1"
+  ],
+  "B2": [
+   "rplidar_c1"
+  ],
+  "A3": [
+   "camera_mast"
+  ],
+  "B3": [
+   "camera_mast"
+  ],
+  "B5": [
+   "omni20"
+  ],
+  "B6": [
+   "omni20"
+  ],
+  "A8": [
+   "liteon_45w"
+  ],
+  "C8": [
+   "liteon_45w"
+  ],
+  "D1": [
+   "small_board_plate"
+  ],
+  "D2": [
+   "small_board_plate"
+  ],
+  "D4": [
+   "jetson_orin_nano"
+  ],
+  "D5": [
+   "jetson_orin_nano"
+  ]
+ },
+ "placements": {
+  "rplidar_c1": {
+   "side": "above",
+   "holes": [
+    "B1",
+    "B2"
+   ],
+   "centre": [
+    95.0,
+    20.0
+   ],
+   "rot": 0
+  },
+  "camera_mast": {
+   "side": "above",
+   "holes": [
+    "A3",
+    "B3"
+   ],
+   "centre": [
+    35.0,
+    40.0
+   ],
+   "rot": 0
+  },
+  "omni20": {
+   "side": "above",
+   "holes": [
+    "B5",
+    "B6"
+   ],
+   "centre": [
+    -65.0,
+    20.0
+   ],
+   "rot": 0
+  },
+  "liteon_45w": {
+   "side": "above",
+   "holes": [
+    "A8",
+    "C8"
+   ],
+   "centre": [
+    -171.5,
+    20.0
+   ],
+   "rot": 180
+  },
+  "small_board_plate": {
+   "side": "above",
+   "holes": [
+    "D1",
+    "D2"
+   ],
+   "centre": [
+    95.0,
+    -60.0
+   ],
+   "rot": 180
+  },
+  "jetson_orin_nano": {
+   "side": "below",
+   "holes": [
+    "D4",
+    "D5"
+   ],
+   "centre": [
+    -25.0,
+    -60.0
+   ],
+   "rot": 180
+  },
+  "cable_tidy": {
+   "side": "above",
+   "holes": [],
+   "centre": [
+    -62.0,
+    -107.0
+   ],
+   "rot": 0
+  },
+  "vesc_tub_bracket": {
+   "side": "tub",
+   "holes": [],
+   "centre": [
+    74.75,
+    -54.5
+   ],
+   "rot": 90
+  }
+ },
+ "interference": [
+  [
+   "omni20:cradle",
+   "jetson_orin_nano:clipless_D4",
+   289.3
+  ],
+  [
+   "omni20:cradle",
+   "jetson_orin_nano:clipless_D5",
+   145.2
+  ],
+  [
+   "vesc_tub_bracket:saddle",
+   "chassis:steering_servo",
+   247.5
+  ],
+  [
+   "chassis:tyre_front_R",
+   "board:plate",
+   0.7
+  ],
+  [
+   "chassis:tyre_front_L",
+   "board:plate",
+   0.7
+  ]
+ ],
+ "clearance": {
+  "jetson_orin_nano": {
+   "depth_below_plate_top": 46.35,
+   "UC45": [
+    "tub",
+    1.83
+   ],
+   "UC40": [
+    "tub",
+    -3.17
+   ],
+   "UC35": [
+    "tub",
+    -8.17
+   ]
+  }
+ },
+ "tub": {
+  "vesc_tub_bracket": {
+   "top_above_rim": 29.8,
+   "bottom_below_rim": 18.0,
+   "UC45": {
+    "plate_underside_margin": 15.2,
+    "hits_mm3": {}
+   },
+   "UC40": {
+    "plate_underside_margin": 10.2,
+    "hits_mm3": {
+     "small_board_plate:clipless_D1": 283.1,
+     "small_board_plate:clipless_D2": 381.2
+    }
+   },
+   "UC35": {
+    "plate_underside_margin": 5.2,
+    "hits_mm3": {
+     "rplidar_c1:clipless_B2": 471.2,
+     "small_board_plate:clipless_D1": 2567.2,
+     "small_board_plate:clipless_D2": 3896.5,
+     "jetson_orin_nano:jetson_tray": 90.8
+    }
+   }
+  }
+ },
+ "chassis": {
+  "WHEELBASE": 335.0,
+  "TRACK": 296.0,
+  "FRONT_TOWER_X": 168.27123641967773,
+  "REAR_TOWER_X": -153.14126586914062,
+  "FRONT_AXLE_OFF": 10.0,
+  "REAR_AXLE_OFF": -4.0,
+  "TUB_L": [
+   -150.0,
+   150.0
+  ],
+  "TUB_W": 100.0,
+  "TUB_DEPTH": 28.0,
+  "TUB_WALL": 3.0,
+  "TOWER_T": 4.0,
+  "TOWER_W": 120.0,
+  "TOWER_TOP": -16.0,
+  "POST_D": 7.0,
+  "POST_ABOVE": 25.0,
+  "POSTS": "front",
+  "SHOCK_Y": 42.0,
+  "SHOCK_CAP_D": 20.0,
+  "SHOCK_LEN": 90.0,
+  "BATT": [
+   -120.0,
+   45.0,
+   3.0,
+   50.0,
+   6.0
+  ],
+  "GEARBOX": [
+   -165.0,
+   -100.0,
+   -30.0,
+   22.0,
+   20.0
+  ],
+  "MOTOR_X": -120.0,
+  "MOTOR_SIDE": -1,
+  "MOTOR_Y_IN": -22.0,
+  "MOTOR_D": 36.0,
+  "MOTOR_L": 60.0,
+  "MOTOR_AXIS_Z": -2.0,
+  "SERVO": [
+   122.0,
+   142.0,
+   -20.0,
+   20.0,
+   2.0
+  ],
+  "LINKAGE": [
+   128.0,
+   175.0,
+   -40.0,
+   40.0,
+   15.0
+  ],
+  "TYRE_D": 110.0,
+  "TYRE_W": 42.0,
+  "TYRE_TOP_ABOVE_RIM": 34.0,
+  "BUMP": 30.0,
+  "LOCK_DEG": 30.0,
+  "WHEELBASE_MODEL": 335.41250228881836
+ },
+ "UNDER_CLEARANCE": 45.0,
+ "scan_plane_z": 44.8,
+ "scan_occlusion": [
+  {
+   "solid": "camera_mast:mast",
+   "range": 71.9,
+   "bearing": -171.7,
+   "width": 5.2,
+   "sector": [
+    -174.2,
+    -169.0
+   ]
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 43.3,
+   "bearing": -166.6,
+   "width": 8.9,
+   "sector": [
+    -170.9,
+    -162.0
+   ]
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 64.0,
+   "bearing": 131.9,
+   "width": 7.1,
+   "sector": [
+    128.3,
+    135.5
+   ]
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 86.0,
+   "bearing": 145.7,
+   "width": 5.3,
+   "sector": [
+    143.0,
+    148.3
+   ]
+  }
+ ],
+ "scan_forward_half_clear": true,
+ "mast_legs_analytic": [
+  {
+   "leg": "rear-right",
+   "x": -14.44,
+   "y": -30.82,
+   "range": 75.2,
+   "bearing": -171.7,
+   "width": 6.8,
+   "sector": [
+    -175.2,
+    -168.3
+   ]
+  },
+  {
+   "leg": "rear-left",
+   "x": -14.44,
+   "y": 30.82,
+   "range": 90.1,
+   "bearing": 145.7,
+   "width": 5.7,
+   "sector": [
+    142.8,
+    148.5
+   ]
+  },
+  {
+   "leg": "front-right",
+   "x": 14.44,
+   "y": -30.82,
+   "range": 46.8,
+   "bearing": -166.6,
+   "width": 11.0,
+   "sector": [
+    -172.1,
+    -161.2
+   ]
+  },
+  {
+   "leg": "front-left",
+   "x": 14.44,
+   "y": 30.82,
+   "range": 68.3,
+   "bearing": 131.9,
+   "width": 7.5,
+   "sector": [
+    128.1,
+    135.7
+   ]
+  }
+ ],
+ "camera_line_of_sight": {
+  "65.0": [
+   {
+    "pitch": 0,
+    "lens_x": 54.0,
+    "lens_z": 148.9,
+    "lidar_edge_dx": 19.0,
+    "lidar_edge_dz": -92.6,
+    "lidar_elev": -78.4,
+    "image_bottom": -32.5,
+    "margin_below_image": 45.9,
+    "enters_at_pitch": -60.6
+   },
+   {
+    "pitch": -5,
+    "lens_x": 57.1,
+    "lens_z": 147.1,
+    "lidar_edge_dx": 15.9,
+    "lidar_edge_dz": -90.8,
+    "lidar_elev": -80.1,
+    "image_bottom": -37.5,
+    "margin_below_image": 42.6,
+    "enters_at_pitch": -60.6
+   },
+   {
+    "pitch": -10,
+    "lens_x": 60.0,
+    "lens_z": 145.0,
+    "lidar_edge_dx": 13.0,
+    "lidar_edge_dz": -88.7,
+    "lidar_elev": -81.7,
+    "image_bottom": -42.5,
+    "margin_below_image": 39.2,
+    "enters_at_pitch": -60.6
+   },
+   {
+    "pitch": -15,
+    "lens_x": 62.8,
+    "lens_z": 142.7,
+    "lidar_edge_dx": 10.2,
+    "lidar_edge_dz": -86.4,
+    "lidar_elev": -83.3,
+    "image_bottom": -47.5,
+    "margin_below_image": 35.8,
+    "enters_at_pitch": -60.6
+   },
+   {
+    "pitch": -20,
+    "lens_x": 65.3,
+    "lens_z": 140.2,
+    "lidar_edge_dx": 7.7,
+    "lidar_edge_dz": -83.9,
+    "lidar_elev": -84.8,
+    "image_bottom": -52.5,
+    "margin_below_image": 32.3,
+    "enters_at_pitch": -60.6
+   }
+  ],
+  "55.0": [
+   {
+    "pitch": 0,
+    "lens_x": 54.0,
+    "lens_z": 148.9,
+    "lidar_edge_dx": 19.0,
+    "lidar_edge_dz": -92.6,
+    "lidar_elev": -78.4,
+    "image_bottom": -27.5,
+    "margin_below_image": 50.9,
+    "enters_at_pitch": -65.8
+   },
+   {
+    "pitch": -5,
+    "lens_x": 57.1,
+    "lens_z": 147.1,
+    "lidar_edge_dx": 15.9,
+    "lidar_edge_dz": -90.8,
+    "lidar_elev": -80.1,
+    "image_bottom": -32.5,
+    "margin_below_image": 47.6,
+    "enters_at_pitch": -65.8
+   },
+   {
+    "pitch": -10,
+    "lens_x": 60.0,
+    "lens_z": 145.0,
+    "lidar_edge_dx": 13.0,
+    "lidar_edge_dz": -88.7,
+    "lidar_elev": -81.7,
+    "image_bottom": -37.5,
+    "margin_below_image": 44.2,
+    "enters_at_pitch": -65.8
+   },
+   {
+    "pitch": -15,
+    "lens_x": 62.8,
+    "lens_z": 142.7,
+    "lidar_edge_dx": 10.2,
+    "lidar_edge_dz": -86.4,
+    "lidar_elev": -83.3,
+    "image_bottom": -42.5,
+    "margin_below_image": 40.8,
+    "enters_at_pitch": -65.8
+   },
+   {
+    "pitch": -20,
+    "lens_x": 65.3,
+    "lens_z": 140.2,
+    "lidar_edge_dx": 7.7,
+    "lidar_edge_dz": -83.9,
+    "lidar_elev": -84.8,
+    "image_bottom": -47.5,
+    "margin_below_image": 37.3,
+    "enters_at_pitch": -65.8
+   }
+  ]
+ }
+}

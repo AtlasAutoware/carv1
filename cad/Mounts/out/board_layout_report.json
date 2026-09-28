@@ -1,0 +1,269 @@
+{
+ "holes": {
+  "c1L": [
+   111.75,
+   48.0
+  ],
+  "c1C": [
+   111.75,
+   0.5
+  ],
+  "c1R": [
+   111.75,
+   -47.0
+  ],
+  "c2L": [
+   61.75,
+   48.0
+  ],
+  "c2C": [
+   61.75,
+   0.5
+  ],
+  "c2R": [
+   61.75,
+   -47.0
+  ],
+  "c3L": [
+   11.75,
+   48.0
+  ],
+  "c3C": [
+   11.75,
+   0.5
+  ],
+  "c3R": [
+   11.75,
+   -47.0
+  ],
+  "c4L": [
+   -38.25,
+   48.0
+  ],
+  "c4C": [
+   -38.25,
+   0.5
+  ],
+  "c4R": [
+   -38.25,
+   -47.0
+  ],
+  "c5L": [
+   -88.25,
+   48.0
+  ],
+  "c5C": [
+   -88.25,
+   0.5
+  ],
+  "c5R": [
+   -88.25,
+   -47.0
+  ],
+  "n1L": [
+   143.0,
+   48.0
+  ],
+  "n1C": [
+   143.0,
+   0.5
+  ],
+  "n1R": [
+   143.0,
+   -47.0
+  ],
+  "n6L": [
+   -180.0,
+   24.25
+  ],
+  "n6R": [
+   -180.0,
+   -23.25
+  ]
+ },
+ "claims": {
+  "n1C": [
+   "camera_mast"
+  ],
+  "n1L": [
+   "camera_mast"
+  ],
+  "c1R": [
+   "rplidar_c1"
+  ],
+  "c2R": [
+   "rplidar_c1"
+  ],
+  "c4C": [
+   "omni20"
+  ],
+  "c5C": [
+   "omni20"
+  ],
+  "n6L": [
+   "liteon_45w"
+  ],
+  "n6R": [
+   "liteon_45w"
+  ],
+  "c2L": [
+   "small_board_plate"
+  ]
+ },
+ "placements": {
+  "camera_mast": {
+   "side": "above",
+   "holes": [
+    "n1C",
+    "n1L"
+   ],
+   "centre": [
+    143.0,
+    24.25
+   ],
+   "rot": 0
+  },
+  "rplidar_c1": {
+   "side": "above",
+   "holes": [
+    "c1R",
+    "c2R"
+   ],
+   "centre": [
+    86.75,
+    -47.0
+   ],
+   "rot": 0
+  },
+  "omni20": {
+   "side": "above",
+   "holes": [
+    "c4C",
+    "c5C"
+   ],
+   "centre": [
+    -63.25,
+    0.5
+   ],
+   "rot": 0
+  },
+  "liteon_45w": {
+   "side": "above",
+   "holes": [
+    "n6L",
+    "n6R"
+   ],
+   "centre": [
+    -169.75,
+    0.5
+   ],
+   "rot": 180
+  },
+  "small_board_plate": {
+   "side": "below",
+   "holes": [
+    "c2L"
+   ],
+   "centre": [
+    61.75,
+    48.0
+   ],
+   "rot": 0
+  }
+ },
+ "interference": [
+  [
+   "chassis:tyre_front_R",
+   "board:plate",
+   0.7
+  ],
+  [
+   "chassis:tyre_front_L",
+   "board:plate",
+   0.7
+  ]
+ ],
+ "clearance": {
+  "small_board_plate": {
+   "depth_below_plate_top": 31.33,
+   "UC45": [
+    "battery_tray",
+    9.67
+   ],
+   "UC40": [
+    "battery_tray",
+    4.67
+   ],
+   "UC35": [
+    "battery_tray",
+    -0.33
+   ]
+  }
+ },
+ "tub": {},
+ "chassis": {
+  "WHEELBASE": 335.0,
+  "TRACK": 296.0,
+  "FRONT_TOWER_X": 168.27123641967773,
+  "REAR_TOWER_X": -153.14126586914062,
+  "FRONT_AXLE_OFF": 10.0,
+  "REAR_AXLE_OFF": -4.0,
+  "TUB_L": [
+   -150.0,
+   150.0
+  ],
+  "TUB_W": 100.0,
+  "TUB_DEPTH": 28.0,
+  "TUB_WALL": 3.0,
+  "TOWER_T": 4.0,
+  "TOWER_W": 120.0,
+  "TOWER_TOP": -16.0,
+  "POST_D": 7.0,
+  "POST_ABOVE": 25.0,
+  "POSTS": "both",
+  "SHOCK_Y": 42.0,
+  "SHOCK_CAP_D": 20.0,
+  "SHOCK_LEN": 90.0,
+  "BATT": [
+   -120.0,
+   45.0,
+   3.0,
+   50.0,
+   6.0
+  ],
+  "GEARBOX": [
+   -165.0,
+   -100.0,
+   -30.0,
+   22.0,
+   20.0
+  ],
+  "MOTOR_X": -120.0,
+  "MOTOR_SIDE": -1,
+  "MOTOR_Y_IN": -22.0,
+  "MOTOR_D": 36.0,
+  "MOTOR_L": 60.0,
+  "MOTOR_AXIS_Z": -2.0,
+  "SERVO": [
+   122.0,
+   142.0,
+   -20.0,
+   20.0,
+   2.0
+  ],
+  "LINKAGE": [
+   128.0,
+   175.0,
+   -40.0,
+   40.0,
+   15.0
+  ],
+  "TYRE_D": 110.0,
+  "TYRE_W": 42.0,
+  "TYRE_TOP_ABOVE_RIM": 34.0,
+  "BUMP": 30.0,
+  "LOCK_DEG": 30.0,
+  "WHEELBASE_MODEL": 335.41250228881836
+ },
+ "UNDER_CLEARANCE": 45.0
+}

@@ -1,0 +1,385 @@
+{
+ "holes": {
+  "A1": [
+   115.0,
+   61.5
+  ],
+  "B1": [
+   115.0,
+   20.5
+  ],
+  "C1": [
+   115.0,
+   -20.5
+  ],
+  "D1": [
+   115.0,
+   -61.5
+  ],
+  "A2": [
+   75.0,
+   61.5
+  ],
+  "B2": [
+   75.0,
+   20.5
+  ],
+  "C2": [
+   75.0,
+   -20.5
+  ],
+  "D2": [
+   75.0,
+   -61.5
+  ],
+  "A3": [
+   35.0,
+   61.5
+  ],
+  "B3": [
+   35.0,
+   20.5
+  ],
+  "C3": [
+   35.0,
+   -20.5
+  ],
+  "D3": [
+   35.0,
+   -61.5
+  ],
+  "A4": [
+   -5.0,
+   61.5
+  ],
+  "B4": [
+   -5.0,
+   20.5
+  ],
+  "C4": [
+   -5.0,
+   -20.5
+  ],
+  "D4": [
+   -5.0,
+   -61.5
+  ],
+  "A5": [
+   -45.0,
+   61.5
+  ],
+  "B5": [
+   -45.0,
+   20.5
+  ],
+  "C5": [
+   -45.0,
+   -20.5
+  ],
+  "D5": [
+   -45.0,
+   -61.5
+  ],
+  "A6": [
+   -85.0,
+   61.5
+  ],
+  "B6": [
+   -85.0,
+   20.5
+  ],
+  "C6": [
+   -85.0,
+   -20.5
+  ],
+  "D6": [
+   -85.0,
+   -61.5
+  ],
+  "A8": [
+   -185.0,
+   61.5
+  ],
+  "B8": [
+   -185.0,
+   20.5
+  ],
+  "C8": [
+   -185.0,
+   -20.5
+  ],
+  "D8": [
+   -185.0,
+   -61.5
+  ]
+ },
+ "claims": {
+  "A1": [
+   "camera_mast"
+  ],
+  "B1": [
+   "camera_mast"
+  ],
+  "A2": [
+   "rplidar_c1"
+  ],
+  "A3": [
+   "rplidar_c1"
+  ],
+  "B5": [
+   "omni20"
+  ],
+  "B6": [
+   "omni20"
+  ],
+  "A8": [
+   "liteon_45w"
+  ],
+  "C8": [
+   "liteon_45w"
+  ],
+  "D1": [
+   "small_board_plate"
+  ],
+  "D2": [
+   "small_board_plate"
+  ],
+  "D4": [
+   "jetson_orin_nano"
+  ],
+  "D5": [
+   "jetson_orin_nano"
+  ],
+  "C1": [
+   "cable_tidy"
+  ],
+  "C2": [
+   "cable_tidy"
+  ]
+ },
+ "placements": {
+  "camera_mast": {
+   "side": "above",
+   "holes": [
+    "A1",
+    "B1"
+   ],
+   "centre": [
+    115.0,
+    41.0
+   ],
+   "rot": 0
+  },
+  "rplidar_c1": {
+   "side": "above",
+   "holes": [
+    "A2",
+    "A3"
+   ],
+   "centre": [
+    55.0,
+    61.5
+   ],
+   "rot": 0
+  },
+  "omni20": {
+   "side": "above",
+   "holes": [
+    "B5",
+    "B6"
+   ],
+   "centre": [
+    -65.0,
+    20.5
+   ],
+   "rot": 0
+  },
+  "liteon_45w": {
+   "side": "above",
+   "holes": [
+    "A8",
+    "C8"
+   ],
+   "centre": [
+    -171.5,
+    20.5
+   ],
+   "rot": 180
+  },
+  "small_board_plate": {
+   "side": "above",
+   "holes": [
+    "D1",
+    "D2"
+   ],
+   "centre": [
+    95.0,
+    -61.5
+   ],
+   "rot": 180
+  },
+  "jetson_orin_nano": {
+   "side": "below",
+   "holes": [
+    "D4",
+    "D5"
+   ],
+   "centre": [
+    -25.0,
+    -61.5
+   ],
+   "rot": 180
+  },
+  "cable_tidy": {
+   "side": "below",
+   "holes": [
+    "C1",
+    "C2"
+   ],
+   "centre": [
+    95.0,
+    -20.5
+   ],
+   "rot": 180
+  }
+ },
+ "interference": [
+  [
+   "small_board_plate:small_board_plate",
+   "cable_tidy:foot0",
+   72.0
+  ],
+  [
+   "small_board_plate:small_board_plate",
+   "cable_tidy:foot1",
+   72.0
+  ],
+  [
+   "small_board_plate:small_board_plate",
+   "cable_tidy:clipless_C1",
+   356.0
+  ],
+  [
+   "small_board_plate:small_board_plate",
+   "cable_tidy:clipless_C2",
+   522.9
+  ],
+  [
+   "small_board_plate:pca9685_hub",
+   "cable_tidy:clipless_C1",
+   750.0
+  ],
+  [
+   "small_board_plate:pca9685_hub",
+   "cable_tidy:clipless_C2",
+   876.2
+  ],
+  [
+   "chassis:tyre_front_R",
+   "board:plate",
+   0.7
+  ],
+  [
+   "chassis:tyre_front_L",
+   "board:plate",
+   0.7
+  ]
+ ],
+ "clearance": {
+  "jetson_orin_nano": {
+   "depth_below_plate_top": 46.35,
+   "UC45": [
+    "tub",
+    1.83
+   ],
+   "UC40": [
+    "tub",
+    -3.17
+   ],
+   "UC35": [
+    "tub",
+    -8.17
+   ]
+  },
+  "cable_tidy": {
+   "depth_below_plate_top": 26.68,
+   "UC45": [
+    "steering_linkage",
+    6.5
+   ],
+   "UC40": [
+    "steering_linkage",
+    1.5
+   ],
+   "UC35": [
+    "steering_linkage",
+    -3.5
+   ]
+  }
+ },
+ "chassis": {
+  "WHEELBASE": 335.0,
+  "TRACK": 296.0,
+  "FRONT_TOWER_X": 168.27123641967773,
+  "REAR_TOWER_X": -153.14126586914062,
+  "FRONT_AXLE_OFF": 10.0,
+  "REAR_AXLE_OFF": -4.0,
+  "TUB_L": [
+   -150.0,
+   150.0
+  ],
+  "TUB_W": 100.0,
+  "TUB_DEPTH": 28.0,
+  "TUB_WALL": 3.0,
+  "TOWER_T": 4.0,
+  "TOWER_W": 120.0,
+  "TOWER_TOP": -16.0,
+  "POST_D": 7.0,
+  "POST_ABOVE": 25.0,
+  "POSTS": "front",
+  "SHOCK_Y": 42.0,
+  "SHOCK_CAP_D": 20.0,
+  "SHOCK_LEN": 90.0,
+  "BATT": [
+   -120.0,
+   45.0,
+   3.0,
+   50.0,
+   6.0
+  ],
+  "GEARBOX": [
+   -165.0,
+   -100.0,
+   -30.0,
+   22.0,
+   20.0
+  ],
+  "MOTOR_X": -120.0,
+  "MOTOR_SIDE": -1,
+  "MOTOR_Y_IN": -22.0,
+  "MOTOR_D": 36.0,
+  "MOTOR_L": 60.0,
+  "MOTOR_AXIS_Z": -2.0,
+  "SERVO": [
+   122.0,
+   142.0,
+   -20.0,
+   20.0,
+   2.0
+  ],
+  "LINKAGE": [
+   128.0,
+   175.0,
+   -40.0,
+   40.0,
+   15.0
+  ],
+  "TYRE_D": 110.0,
+  "TYRE_W": 42.0,
+  "TYRE_TOP_ABOVE_RIM": 34.0,
+  "BUMP": 30.0,
+  "LOCK_DEG": 30.0,
+  "WHEELBASE_MODEL": 335.41250228881836
+ },
+ "UNDER_CLEARANCE": 45.0
+}

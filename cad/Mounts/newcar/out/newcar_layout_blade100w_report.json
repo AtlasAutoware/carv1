@@ -1,0 +1,1116 @@
+{
+ "holes": {
+  "A1": [
+   115.0,
+   61.5
+  ],
+  "B1": [
+   115.0,
+   20.5
+  ],
+  "C1": [
+   115.0,
+   -20.5
+  ],
+  "D1": [
+   115.0,
+   -61.5
+  ],
+  "A2": [
+   75.0,
+   61.5
+  ],
+  "B2": [
+   75.0,
+   20.5
+  ],
+  "C2": [
+   75.0,
+   -20.5
+  ],
+  "D2": [
+   75.0,
+   -61.5
+  ],
+  "A3": [
+   35.0,
+   61.5
+  ],
+  "B3": [
+   35.0,
+   20.5
+  ],
+  "C3": [
+   35.0,
+   -20.5
+  ],
+  "D3": [
+   35.0,
+   -61.5
+  ],
+  "A4": [
+   -5.0,
+   61.5
+  ],
+  "B4": [
+   -5.0,
+   20.5
+  ],
+  "C4": [
+   -5.0,
+   -20.5
+  ],
+  "D4": [
+   -5.0,
+   -61.5
+  ],
+  "A5": [
+   -45.0,
+   61.5
+  ],
+  "B5": [
+   -45.0,
+   20.5
+  ],
+  "C5": [
+   -45.0,
+   -20.5
+  ],
+  "D5": [
+   -45.0,
+   -61.5
+  ],
+  "A6": [
+   -85.0,
+   61.5
+  ],
+  "B6": [
+   -85.0,
+   20.5
+  ],
+  "C6": [
+   -85.0,
+   -20.5
+  ],
+  "D6": [
+   -85.0,
+   -61.5
+  ],
+  "A8": [
+   -185.0,
+   61.5
+  ],
+  "B8": [
+   -185.0,
+   20.5
+  ],
+  "C8": [
+   -185.0,
+   -20.5
+  ],
+  "D8": [
+   -185.0,
+   -61.5
+  ]
+ },
+ "claims": {
+  "A1": [
+   "tim561"
+  ],
+  "B1": [
+   "tim561"
+  ],
+  "A2": [
+   "tim561"
+  ],
+  "B2": [
+   "tim561"
+  ],
+  "A3": [
+   "camera_mast"
+  ],
+  "B3": [
+   "camera_mast"
+  ],
+  "D2": [
+   "jetson_orin_nano"
+  ],
+  "D3": [
+   "jetson_orin_nano"
+  ],
+  "B5": [
+   "battery_bank"
+  ],
+  "C5": [
+   "battery_bank"
+  ],
+  "B6": [
+   "battery_bank"
+  ],
+  "C6": [
+   "battery_bank"
+  ]
+ },
+ "placements": {
+  "tim561": {
+   "side": "above",
+   "holes": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+   ],
+   "centre": [
+    95.0,
+    41.0
+   ],
+   "rot": 0
+  },
+  "camera_mast": {
+   "side": "above",
+   "holes": [
+    "A3",
+    "B3"
+   ],
+   "centre": [
+    35.0,
+    41.0
+   ],
+   "rot": 0
+  },
+  "jetson_orin_nano": {
+   "side": "above",
+   "holes": [
+    "D2",
+    "D3"
+   ],
+   "centre": [
+    55.0,
+    -61.5
+   ],
+   "rot": 180
+  },
+  "battery_bank": {
+   "side": "below",
+   "holes": [
+    "B5",
+    "C5",
+    "B6",
+    "C6"
+   ],
+   "centre": [
+    -65.0,
+    0.0
+   ],
+   "rot": 0
+  },
+  "cable_tidy": {
+   "side": "above",
+   "holes": [],
+   "centre": [
+    -62.0,
+    -107.0
+   ],
+   "rot": 0
+  },
+  "vesc_tub_bracket": {
+   "side": "tub",
+   "holes": [],
+   "centre": [
+    74.75,
+    -54.5
+   ],
+   "rot": 90
+  }
+ },
+ "interference": [
+  [
+   "battery_bank:bank_tray",
+   "cable_tidy:m5_fasteners",
+   250.2
+  ],
+  [
+   "battery_bank:bank_tray",
+   "chassis:motor",
+   553.0
+  ],
+  [
+   "battery_bank:power_bank",
+   "cable_tidy:m5_fasteners",
+   1.0
+  ],
+  [
+   "battery_bank:power_bank",
+   "chassis:gearbox",
+   3051.5
+  ],
+  [
+   "battery_bank:power_bank",
+   "chassis:motor",
+   2665.4
+  ]
+ ],
+ "extents": {
+  "tim561:plinth": [
+   55.5,
+   142.46,
+   0.25,
+   81.75,
+   0.0,
+   44.4
+  ],
+  "tim561:lidar": [
+   15.84,
+   139.21,
+   11.0,
+   71.0,
+   14.0,
+   99.75
+  ],
+  "camera_mast:mast": [
+   14.75,
+   55.25,
+   -0.0,
+   82.0,
+   0.0,
+   152.37
+  ],
+  "camera_mast:head": [
+   21.0,
+   54.0,
+   15.0,
+   67.0,
+   147.37,
+   174.37
+  ],
+  "camera_mast:camera": [
+   24.0,
+   54.0,
+   -21.73,
+   85.73,
+   156.37,
+   181.37
+  ],
+  "jetson_orin_nano:jetson_tray": [
+   1.5,
+   108.5,
+   -104.5,
+   -18.5,
+   0.0,
+   17.97
+  ],
+  "jetson_orin_nano:jetson_kit": [
+   5.0,
+   105.0,
+   -101.0,
+   -20.0,
+   10.3,
+   43.17
+  ],
+  "battery_bank:bank_tray": [
+   -131.45,
+   9.45,
+   -84.4,
+   84.4,
+   -31.88,
+   -3.17
+  ],
+  "battery_bank:power_bank": [
+   -127.95,
+   30.95,
+   -80.9,
+   80.9,
+   -29.58,
+   -11.77
+  ],
+  "cable_tidy:rail": [
+   -152.0,
+   -12.0,
+   -125.6,
+   -76.0,
+   -0.0,
+   23.5
+  ],
+  "cable_tidy:cables": [
+   -112.5,
+   -13.5,
+   -121.5,
+   -75.0,
+   8.1,
+   20.1
+  ],
+  "cable_tidy:m5_fasteners": [
+   -149.75,
+   -100.25,
+   -86.75,
+   -77.25,
+   -12.0,
+   6.75
+  ],
+  "vesc_tub_bracket:saddle": [
+   25.25,
+   124.25,
+   -117.5,
+   8.5,
+   -66.17,
+   -18.38
+  ],
+  "vesc_tub_bracket:vesc_case": [
+   28.75,
+   126.74,
+   -132.0,
+   18.0,
+   -45.17,
+   -20.67
+  ]
+ },
+ "clearance": {
+  "battery_bank": {
+   "depth_below_plate_top": 31.88,
+   "UC45": [
+    "motor",
+    -6.7
+   ],
+   "UC40": [
+    "motor",
+    -11.7
+   ],
+   "UC35": [
+    "motor",
+    -16.7
+   ]
+  }
+ },
+ "tub": {
+  "vesc_tub_bracket": {
+   "top_above_rim": 29.8,
+   "UC45": {
+    "plate_underside_margin": 15.2,
+    "hits_mm3": {}
+   },
+   "UC40": {
+    "plate_underside_margin": 10.2,
+    "hits_mm3": {
+     "jetson_orin_nano:clipless_D2": 381.2,
+     "jetson_orin_nano:clipless_D3": 279.1
+    }
+   },
+   "UC35": {
+    "plate_underside_margin": 5.2,
+    "hits_mm3": {
+     "tim561:clipless_B2": 455.2,
+     "jetson_orin_nano:clipless_D2": 3896.5,
+     "jetson_orin_nano:clipless_D3": 2590.5
+    }
+   }
+  }
+ },
+ "closest": {
+  "jetson_orin_nano:jetson_tray | vesc_tub_bracket:saddle": {
+   "dx": -83.25,
+   "dy": -99.0,
+   "dz": 18.38,
+   "gap": 18.38
+  },
+  "jetson_orin_nano:jetson_kit | chassis:tub": {
+   "dx": -145.0,
+   "dy": -30.0,
+   "dz": 58.47,
+   "gap": 58.47
+  },
+  "vesc_tub_bracket:saddle | chassis:motor": {
+   "dx": 132.25,
+   "dy": -92.5,
+   "dz": -41.0,
+   "gap": 132.25
+  },
+  "vesc_tub_bracket:saddle | battery_bank:clipless_C5": {
+   "dx": 53.75,
+   "dy": -45.5,
+   "dz": 15.24,
+   "gap": 53.75
+  },
+  "vesc_tub_bracket:saddle | battery_bank:clipless_C6": {
+   "dx": 93.75,
+   "dy": -45.5,
+   "dz": 15.24,
+   "gap": 93.75
+  },
+  "battery_bank:bank_tray | cable_tidy:rail": {
+   "dx": -119.45,
+   "dy": -8.4,
+   "dz": 3.17,
+   "gap": 3.17
+  },
+  "battery_bank:bank_tray | camera_mast:mast": {
+   "dx": 5.3,
+   "dy": -84.4,
+   "dz": 3.17,
+   "gap": 5.3
+  },
+  "jetson_orin_nano:jetson_kit | chassis:centre_shaft": {
+   "dx": -123.0,
+   "dy": 12.0,
+   "dz": 66.47,
+   "gap": 66.47
+  },
+  "jetson_orin_nano:jetson_tray | chassis:steering_servo": {
+   "dx": 19.5,
+   "dy": -34.5,
+   "dz": 23.17,
+   "gap": 23.17
+  },
+  "tim561:plinth | camera_mast:mast": {
+   "dx": 0.25,
+   "dy": -81.75,
+   "dz": -44.4,
+   "gap": 0.25
+  },
+  "tim561:lidar | camera_mast:mast": {
+   "dx": -39.41,
+   "dy": -71.0,
+   "dz": -99.75,
+   "gap": -39.41
+  },
+  "camera_mast:mast | jetson_orin_nano:jetson_tray": {
+   "dx": -53.75,
+   "dy": 18.5,
+   "dz": -17.97,
+   "gap": 18.5
+  },
+  "jetson_orin_nano:jetson_tray | chassis:tyre_front_R": {
+   "dx": 11.64,
+   "dy": -23.19,
+   "dz": 4.17,
+   "gap": 11.64
+  },
+  "jetson_orin_nano:jetson_kit | chassis:tyre_front_R": {
+   "dx": 15.14,
+   "dy": -19.69,
+   "dz": 14.47,
+   "gap": 15.14
+  },
+  "battery_bank:bank_tray | board:bracket2": {
+   "dx": 2.49,
+   "dy": -104.45,
+   "dz": -14.01,
+   "gap": 2.49
+  },
+  "battery_bank:power_bank | board:bracket2": {
+   "dx": 5.99,
+   "dy": -100.95,
+   "dz": -5.41,
+   "gap": 5.99
+  },
+  "battery_bank:bank_tray | board:bracket3": {
+   "dx": 2.49,
+   "dy": -104.45,
+   "dz": -17.74,
+   "gap": 2.49
+  },
+  "battery_bank:bank_tray | vesc_tub_bracket:saddle": {
+   "dx": 15.8,
+   "dy": -92.9,
+   "dz": -13.5,
+   "gap": 15.8
+  },
+  "battery_bank:bank_tray | chassis:rear_tower": {
+   "dx": 8.29,
+   "dy": -144.4,
+   "dz": -12.7,
+   "gap": 8.29
+  },
+  "battery_bank:bank_tray | cable_tidy:m5_fasteners": {
+   "dx": -31.2,
+   "dy": -7.15,
+   "dz": -8.83,
+   "gap": -7.15
+  },
+  "battery_bank:bank_tray | chassis:battery_tray": {
+   "dx": -84.45,
+   "dy": -69.4,
+   "dz": 10.3,
+   "gap": 10.3
+  },
+  "battery_bank:bank_tray | chassis:gearbox": {
+   "dx": -21.45,
+   "dy": -109.4,
+   "dz": -5.7,
+   "gap": -5.7
+  },
+  "battery_bank:bank_tray | chassis:motor": {
+   "dx": -24.45,
+   "dy": -59.4,
+   "dz": -6.7,
+   "gap": -6.7
+  },
+  "vesc_tub_bracket:saddle | chassis:steering_servo": {
+   "dx": 3.75,
+   "dy": -61.5,
+   "dz": -43.0,
+   "gap": 3.75
+  },
+  "vesc_tub_bracket:saddle | jetson_orin_nano:clipless_D2": {
+   "dx": -65.75,
+   "dy": -72.5,
+   "dz": 2.35,
+   "gap": 2.35
+  },
+  "vesc_tub_bracket:saddle | jetson_orin_nano:clipless_D3": {
+   "dx": -26.25,
+   "dy": -72.5,
+   "dz": 2.35,
+   "gap": 2.35
+  },
+  "vesc_tub_bracket:vesc_case | jetson_orin_nano:clipless_D2": {
+   "dx": -62.75,
+   "dy": -87.0,
+   "dz": 4.65,
+   "gap": 4.65
+  },
+  "tim561:clipless_B1 | chassis:steering_servo": {
+   "dx": -3.5,
+   "dy": 1.0,
+   "dz": 7.15,
+   "gap": 7.15
+  },
+  "tim561:clipless_B1 | chassis:steering_linkage": {
+   "dx": 8.5,
+   "dy": -36.0,
+   "dz": 20.15,
+   "gap": 20.15
+  },
+  "camera_mast:clipless_B3 | battery_bank:bank_tray": {
+   "dx": 9.05,
+   "dy": -80.4,
+   "dz": -12.85,
+   "gap": 9.05
+  },
+  "camera_mast:mast | battery_bank:clipless_B5": {
+   "dx": 43.25,
+   "dy": -37.0,
+   "dz": -12.85,
+   "gap": 43.25
+  },
+  "tim561:lidar | chassis:tyre_front_L": {
+   "dx": -19.07,
+   "dy": 10.31,
+   "dz": 18.17,
+   "gap": 18.17
+  },
+  "tim561:plinth | chassis:body_post_2": {
+   "dx": 34.4,
+   "dy": 35.38,
+   "dz": -25.0,
+   "gap": 35.38
+  },
+  "tim561:plinth | chassis:body_post_3": {
+   "dx": 34.4,
+   "dy": -41.87,
+   "dz": -25.0,
+   "gap": 34.4
+  },
+  "cable_tidy:rail | chassis:tyre_rear_R": {
+   "dx": -61.26,
+   "dy": -19.6,
+   "dz": 4.17,
+   "gap": 4.17
+  },
+  "jetson_orin_nano:jetson_tray | tim561:plinth": {
+   "dx": -53.0,
+   "dy": 18.75,
+   "dz": -17.97,
+   "gap": 18.75
+  }
+ },
+ "chassis": {
+  "WHEELBASE": 324.0,
+  "TRACK": 296.0,
+  "FRONT_AXLE_OFF": 10.0,
+  "REAR_AXLE_OFF": -4.0,
+  "TUB_L": [
+   -150.0,
+   150.0
+  ],
+  "TUB_W": 100.0,
+  "TUB_DEPTH": 24.0,
+  "TUB_WALL": 3.0,
+  "TOWER_T": 4.0,
+  "TOWER_W": 120.0,
+  "TOWER_TOP": -16.0,
+  "POST_D": 7.0,
+  "POST_ABOVE": 25.0,
+  "POSTS": "front",
+  "SHOCK_Y": 42.0,
+  "SHOCK_CAP_D": 20.0,
+  "SHOCK_LEN": 90.0,
+  "BATT": [
+   -75.0,
+   65.0,
+   15.0,
+   62.0,
+   6.0
+  ],
+  "GEARBOX": [
+   -160.0,
+   -110.0,
+   -25.0,
+   25.0,
+   22.0
+  ],
+  "MOTOR_X": -125.0,
+  "MOTOR_SIDE": -1,
+  "MOTOR_Y_IN": -25.0,
+  "MOTOR_D": 36.0,
+  "MOTOR_L": 60.0,
+  "MOTOR_AXIS_Z": 5.0,
+  "SHAFT": [
+   -110.0,
+   128.0,
+   -8.0,
+   8.0,
+   -8.0
+  ],
+  "SERVO": [
+   128.0,
+   150.0,
+   -53.0,
+   3.0,
+   25.0
+  ],
+  "LINKAGE": [
+   140.0,
+   185.0,
+   -40.0,
+   40.0,
+   12.0
+  ],
+  "TYRE_D": 110.0,
+  "TYRE_W": 42.0,
+  "TYRE_TOP_ABOVE_RIM": 14.0,
+  "BUMP": 30.0,
+  "LOCK_DEG": 30.0,
+  "FRONT_TOWER_X": 168.27123641967773,
+  "REAR_TOWER_X": -141.74126586914062,
+  "WHEELBASE_MODEL": 324.0125022888184
+ },
+ "UNDER_CLEARANCE": 45.0,
+ "CAM_HEIGHT": 170.0,
+ "LAYOUT": "under",
+ "VESC": "saddle",
+ "scan_plane_z": 76.46000000000001,
+ "lidar_top_z": 99.75,
+ "scan_occlusion": [
+  {
+   "solid": "camera_mast:mast",
+   "range": 87.1,
+   "bearing": -162.7,
+   "width": 4.8,
+   "sector": [
+    -165.0,
+    -160.2
+   ],
+   "in_blind_sector": true,
+   "in_forward_half": false
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 62.6,
+   "bearing": -156.0,
+   "width": 6.8,
+   "sector": [
+    -159.3,
+    -152.5
+   ],
+   "in_blind_sector": true,
+   "in_forward_half": false
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 62.6,
+   "bearing": 156.0,
+   "width": 6.8,
+   "sector": [
+    152.5,
+    159.3
+   ],
+   "in_blind_sector": true,
+   "in_forward_half": false
+  },
+  {
+   "solid": "camera_mast:mast",
+   "range": 87.1,
+   "bearing": 162.7,
+   "width": 4.8,
+   "sector": [
+    160.2,
+    165.0
+   ],
+   "in_blind_sector": true,
+   "in_forward_half": false
+  }
+ ],
+ "legs_analytic": [
+  {
+   "leg": "rear-right",
+   "x": -12.96,
+   "y": -27.05,
+   "range": 90.8,
+   "bearing": -162.7,
+   "width": 5.7,
+   "sector": [
+    -165.5,
+    -159.8
+   ]
+  },
+  {
+   "leg": "rear-left",
+   "x": -12.96,
+   "y": 27.05,
+   "range": 90.8,
+   "bearing": 162.7,
+   "width": 5.7,
+   "sector": [
+    159.8,
+    165.5
+   ]
+  },
+  {
+   "leg": "front-right",
+   "x": 12.96,
+   "y": -27.05,
+   "range": 66.5,
+   "bearing": -156.0,
+   "width": 7.7,
+   "sector": [
+    -159.9,
+    -152.1
+   ]
+  },
+  {
+   "leg": "front-left",
+   "x": 12.96,
+   "y": 27.05,
+   "range": 66.5,
+   "bearing": 156.0,
+   "width": 7.7,
+   "sector": [
+    152.1,
+    159.9
+   ]
+  }
+ ],
+ "legs_all_in_blind_sector": true,
+ "camera_line_of_sight": {
+  "150.0": {
+   "65.0": {
+    "enters_at_pitch": -0.5,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -49.1,
+      "elev": -33.0,
+      "image_bottom": -32.5,
+      "margin": 0.5
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -47.3,
+      "elev": -33.1,
+      "image_bottom": -37.5,
+      "margin": -4.4
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -45.3,
+      "elev": -33.0,
+      "image_bottom": -42.5,
+      "margin": -9.5
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -43.0,
+      "elev": -32.7,
+      "image_bottom": -47.5,
+      "margin": -14.8
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -40.4,
+      "elev": -32.1,
+      "image_bottom": -52.5,
+      "margin": -20.4
+     }
+    ]
+   },
+   "55.0": {
+    "enters_at_pitch": -5.6,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -49.1,
+      "elev": -33.0,
+      "image_bottom": -27.5,
+      "margin": 5.5
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -47.3,
+      "elev": -33.1,
+      "image_bottom": -32.5,
+      "margin": 0.6
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -45.3,
+      "elev": -33.0,
+      "image_bottom": -37.5,
+      "margin": -4.5
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -43.0,
+      "elev": -32.7,
+      "image_bottom": -42.5,
+      "margin": -9.8
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -40.4,
+      "elev": -32.1,
+      "image_bottom": -47.5,
+      "margin": -15.4
+     }
+    ]
+   }
+  },
+  "170.0": {
+   "65.0": {
+    "enters_at_pitch": -10.7,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -69.1,
+      "elev": -42.4,
+      "image_bottom": -32.5,
+      "margin": 9.9
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -67.3,
+      "elev": -42.8,
+      "image_bottom": -37.5,
+      "margin": 5.3
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -65.3,
+      "elev": -43.1,
+      "image_bottom": -42.5,
+      "margin": 0.6
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -63.0,
+      "elev": -43.3,
+      "image_bottom": -47.5,
+      "margin": -4.2
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -60.4,
+      "elev": -43.2,
+      "image_bottom": -52.5,
+      "margin": -9.3
+     }
+    ]
+   },
+   "55.0": {
+    "enters_at_pitch": -15.8,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -69.1,
+      "elev": -42.4,
+      "image_bottom": -27.5,
+      "margin": 14.9
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -67.3,
+      "elev": -42.8,
+      "image_bottom": -32.5,
+      "margin": 10.3
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -65.3,
+      "elev": -43.1,
+      "image_bottom": -37.5,
+      "margin": 5.6
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -63.0,
+      "elev": -43.3,
+      "image_bottom": -42.5,
+      "margin": 0.8
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -60.4,
+      "elev": -43.2,
+      "image_bottom": -47.5,
+      "margin": -4.3
+     }
+    ]
+   }
+  },
+  "190.0": {
+   "65.0": {
+    "enters_at_pitch": -18.8,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -89.1,
+      "elev": -49.7,
+      "image_bottom": -32.5,
+      "margin": 17.2
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -87.3,
+      "elev": -50.3,
+      "image_bottom": -37.5,
+      "margin": 12.8
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -85.3,
+      "elev": -50.8,
+      "image_bottom": -42.5,
+      "margin": 8.3
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -83.0,
+      "elev": -51.1,
+      "image_bottom": -47.5,
+      "margin": 3.6
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -80.4,
+      "elev": -51.3,
+      "image_bottom": -52.5,
+      "margin": -1.2
+     }
+    ]
+   },
+   "55.0": {
+    "enters_at_pitch": -23.9,
+    "rows": [
+     {
+      "pitch": 0,
+      "critical": "hood_top_front",
+      "dx": 75.7,
+      "dz": -89.1,
+      "elev": -49.7,
+      "image_bottom": -27.5,
+      "margin": 22.2
+     },
+     {
+      "pitch": -5,
+      "critical": "hood_top_front",
+      "dx": 72.6,
+      "dz": -87.3,
+      "elev": -50.3,
+      "image_bottom": -32.5,
+      "margin": 17.8
+     },
+     {
+      "pitch": -10,
+      "critical": "hood_top_front",
+      "dx": 69.7,
+      "dz": -85.3,
+      "elev": -50.8,
+      "image_bottom": -37.5,
+      "margin": 13.3
+     },
+     {
+      "pitch": -15,
+      "critical": "hood_top_front",
+      "dx": 66.9,
+      "dz": -83.0,
+      "elev": -51.1,
+      "image_bottom": -42.5,
+      "margin": 8.6
+     },
+     {
+      "pitch": -20,
+      "critical": "hood_top_front",
+      "dx": 64.4,
+      "dz": -80.4,
+      "elev": -51.3,
+      "image_bottom": -47.5,
+      "margin": 3.8
+     }
+    ]
+   }
+  }
+ },
+ "plate_shifts": {
+  "rear": 11.4,
+  "front": 0.0
+ }
+}
