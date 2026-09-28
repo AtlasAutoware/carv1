@@ -1,4 +1,30 @@
-# AtlasAutoware — F1TENTH/RoboRacer autonomous racing stack
+# carv1 — Atlas Autoware's first car
+
+Everything for Atlas Autoware's first 1/10-scale autonomous race car in one
+repo: the ROS 2 racing software, the Jetson setup that runs it, and the CAD
+and electronics for the physical build. (The next car lives in
+[carv2](https://github.com/AtlasAutoware/carv2).)
+
+This repo combines two earlier ones, with their full commit history:
+`atlasautoware` (the software, now the repo root) and `atlasautoware-cad`
+(now [`cad/`](cad/)).
+
+## What's where
+
+| Path | What it holds |
+|---|---|
+| `f1tenth_gym_ros/`, `launch/`, `config/` | The ROS 2 racing stack: nodes, launch files, sim and car parameters |
+| `racelines/`, `maps/` | Optimized racelines and track maps |
+| `tools/`, `tests/`, `ui/`, `ml/`, `models/` | Tuning and benchmarking scripts, tests, the live dashboard, perception models |
+| `hardware/` | What runs on the Jetson outside the ROS package: bringup scripts, udev rules, VESC config, race-day [RUNBOOK](hardware/RUNBOOK.md) |
+| `docs/` | Design notes (MPC, racing tech, mapping, hardware wiring) and the project paper/report |
+| `cad/Components/` | 3D models of the off-the-shelf parts (Jetson Orin Nano, RPLIDAR C1, PCA9685) |
+| `cad/Mounts/` | Scripted (CadQuery) mounts and baseplate, with fit checks, fab exports and G-code — see [DESIGN.md](cad/Mounts/DESIGN.md) |
+| `cad/Templates/` | The original clipless mounting system and baseplate the mounts are built on |
+| `cad/Electronics/` | AtlasPower-4S, the power board that runs the car's electronics off the 4S drive pack — see its [README](cad/Electronics/README.md) |
+| `cad/Jetson/` | JetPack rebuild and smoke-test scripts |
+
+## The software stack
 
 A complete ROS 2 racing stack for 1/10-scale autonomous racing: simulation
 bridge, SLAM mapping, raceline optimization, an OSQP-based MPC racing
@@ -56,7 +82,7 @@ Supported: Ubuntu 22.04 native with ROS 2 Humble, or any OS via Docker
 git clone https://github.com/f1tenth/f1tenth_gym && cd f1tenth_gym && pip3 install -e . && cd ..
 # workspace
 mkdir -p $HOME/sim_ws/src && cd $HOME/sim_ws/src
-git clone <this repo>
+git clone https://github.com/AtlasAutoware/carv1 atlasautoware   # the paths below expect this folder name
 # point map_path in config/sim.yaml at <your_home>/sim_ws/src/atlasautoware/maps/levine
 cd $HOME/sim_ws
 rosdep install -i --from-path src --rosdistro humble -y
