@@ -14,7 +14,8 @@ Same network (Student from train_student.py), same ONNX inputs, so it is a drop-
 
     python3 ml/train_policy.py --data data/demos data/dagger1 --out runs/pol --epochs 25 --seed 0
 """
-import argparse, glob, json, math, os, sys, time, zlib
+import argparse, collections, glob, hashlib, json, math, mmap, os, shutil, sys, time, zlib
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch, torch.nn as nn, torch.nn.functional as F
 
@@ -43,6 +44,62 @@ def load_shards(dirs, max_files=0, max_per_file=0, seed=0):
         key = os.path.basename(f).rsplit('_s', 1)[0].encode()        # crc32: stable across runs
         grp.append(np.full(len(out['act'][-1]), zlib.crc32(key), np.int64))
     return {k: np.concatenate(v) for k, v in out.items()}, np.concatenate(grp), len(files)
+
+
+def build_cache(dirs, max_files=0, max_per_file=0, seed=0, keep_stops=False):
+    """Load the shards in pieces instead of all at once.
+
+    load_shards() holds every shard in RAM and then concatenates (about twice the data at the
+    peak). The 2400-episode extended set is ~55 GB once loaded, so on the 62 GB workstation it
+    ran out of memory. Here the shards are streamed once, one file at a time, into an on-disk
+    cache next to the data (data/_cache/<signature>/): the camera frames (~95% of the bytes)
+    go into one raw uint8 file that training memory-maps, and the small arrays (scan, state,
+    act, ids, group) are saved as .npy. Rows, their order and the stop-frame filter are exactly
+    what load_shards() + the keep_stops filter in main() produced, so the train/val split and
+    the per-epoch batches are unchanged. The cache is shared by every seed on the same data;
+    a half-written one (build interrupted) is ignored and rebuilt.
+    """
+    files = sorted(f for d in dirs for f in glob.glob(os.path.join(d, '*.npz')))
+    if max_files: files = files[:max_files]
+    sig = hashlib.sha1(json.dumps([[os.path.abspath(f), os.path.getsize(f), int(os.path.getmtime(f))]
+                                   for f in files] + [max_per_file, seed, keep_stops, BEAMS]).encode()).hexdigest()[:16]
+    cdir = os.path.join(os.path.dirname(os.path.abspath(dirs[0])), '_cache', sig)
+    if not os.path.isfile(os.path.join(cdir, 'meta.json')):
+        tmp = cdir + '.tmp'; shutil.rmtree(tmp, ignore_errors=True); os.makedirs(tmp)
+        small = {k: [] for k in ('scan', 'state', 'act', 'ids')}; grp = []
+        n = dropped = 0; fshape = None; t0 = time.time()
+        print(f'building the data cache {cdir} from {len(files)} shards (once per data set)', flush=True)
+        with open(os.path.join(tmp, 'front.u8'), 'wb') as ff:
+            for gi, f in enumerate(files):
+                z = np.load(f); act = z['act']
+                if len(act) == 0 or z['scan'].shape[1] != BEAMS: continue
+                m = len(act); sel = np.arange(m)
+                # cap only on-policy (DAgger) shards, as in load_shards()
+                if max_per_file and m > max_per_file and 'dagger' in os.path.basename(os.path.dirname(f)):
+                    sel = np.sort(np.random.default_rng(seed + gi).choice(m, max_per_file, replace=False))
+                if not keep_stops:                     # same rule as main(): speed exactly 0 = at goal
+                    k = act[sel, 0] > 0.0; dropped += int((~k).sum()); sel = sel[k]
+                if len(sel) == 0: continue
+                fr = np.ascontiguousarray(z['front'][sel], dtype=np.uint8)
+                if fshape is None: fshape = fr.shape[1:]
+                assert fr.shape[1:] == fshape, (f, fr.shape)
+                ff.write(fr.tobytes())
+                for k in small: small[k].append(z[k][sel])
+                key = os.path.basename(f).rsplit('_s', 1)[0].encode()        # crc32: stable across runs
+                grp.append(np.full(len(sel), zlib.crc32(key), np.int64)); n += len(sel)
+                if gi % 200 == 0: print(f'  {gi}/{len(files)} shards, {n} steps, {time.time() - t0:.0f} s', flush=True)
+        for k, v in small.items(): np.save(os.path.join(tmp, k + '.npy'), np.concatenate(v))
+        np.save(os.path.join(tmp, 'grp.npy'), np.concatenate(grp))
+        json.dump({'n': n, 'front_shape': list(fshape), 'files': len(files), 'dropped_stops': dropped,
+                   'keep_stops': keep_stops}, open(os.path.join(tmp, 'meta.json'), 'w'))
+        shutil.rmtree(cdir, ignore_errors=True); os.rename(tmp, cdir)
+        print(f'cache built: {n} steps in {time.time() - t0:.0f} s', flush=True)
+    meta = json.load(open(os.path.join(cdir, 'meta.json')))
+    front = np.memmap(os.path.join(cdir, 'front.u8'), np.uint8, 'r', shape=(meta['n'], *meta['front_shape']))
+    try: front._mmap.madvise(mmap.MADV_RANDOM)       # batches read random rows: no readahead
+    except Exception: pass
+    D = {k: np.load(os.path.join(cdir, k + '.npy')) for k in ('scan', 'state', 'act', 'ids')}
+    return front, D, np.load(os.path.join(cdir, 'grp.npy')), meta
 
 
 class BEVRaster(nn.Module):
@@ -106,11 +163,12 @@ def main():
                          'is not in the observation, so these frames teach "stop" at arbitrary places')
     a = ap.parse_args()
     torch.manual_seed(a.seed); np.random.seed(a.seed); os.makedirs(a.out, exist_ok=True)
-    D, grp, nf = load_shards(a.data, a.max_files, a.max_per_file)
+    # frames stream from a memory-mapped on-disk cache (see build_cache); the stop-frame filter
+    # (expert speed is exactly 0 only once done) is applied while the cache is built
+    FRONT, D, grp, meta = build_cache(a.data, a.max_files, a.max_per_file, keep_stops=a.keep_stops)
+    nf = meta['files']
     if not a.keep_stops:
-        keep = D['act'][:, 0] > 0.0                    # expert speed is exactly 0 only once done
-        print(f'dropping {int((~keep).sum())} at-goal stop frames', flush=True)
-        D = {k: v[keep] for k, v in D.items()}; grp = grp[keep]
+        print(f"dropping {meta['dropped_stops']} at-goal stop frames", flush=True)
     ug = np.unique(grp); rng = np.random.default_rng(12345)       # split fixed across seeds
     val_g = set(rng.choice(ug, max(1, int(len(ug) * a.val_frac)), replace=False).tolist())
     vm = np.array([g in val_g for g in grp]); tr_idx, va_idx = np.where(~vm)[0], np.where(vm)[0]
@@ -118,10 +176,9 @@ def main():
     np.save(os.path.join(a.out, 'action_norm.npy'), np.stack([mu, sd]))
     dev = 'cuda'
     print(f'{nf} shards, {len(tr_idx)} train / {len(va_idx)} val steps, action mean {mu.round(3)} sd {sd.round(3)}', flush=True)
-    # everything lives on the GPU as uint8/half: ~46 KB a step, fine for ~100k steps on 8 GB
-    # camera frames stay in pinned host memory (they are ~90% of the bytes; 8 GB of GPU is not
-    # enough once DAgger data accumulates); everything else lives on the GPU
-    T = {'front': torch.from_numpy(D['front']).pin_memory(), 'scan': torch.from_numpy(D['scan']).to(dev),
+    # camera frames (~95% of the bytes) stay in the memory-mapped cache and are read a batch at a
+    # time by a background thread; everything else lives on the GPU
+    T = {'scan': torch.from_numpy(D['scan']).to(dev),
          'state': torch.from_numpy(D['state']).to(dev), 'act': torch.from_numpy(D['act']).to(dev),
          'ids': torch.from_numpy(D['ids']).to(dev)}
     del D
@@ -152,9 +209,26 @@ def main():
     aug = {'cam_aug': a.cam_aug, 'cam_drop': a.cam_drop, 'beam_drop': a.beam_drop}
     tr_t = torch.from_numpy(tr_idx); va_t = torch.from_numpy(va_idx)
 
-    def batch(ix, train):
-        f = T['front'][ix].to(dev, non_blocking=True).permute(0, 3, 1, 2).float() / 255.0
-        g = ix.to(dev, non_blocking=True); s = T['scan'][g].float()
+    io = ThreadPoolExecutor(2)
+
+    def gather(ix):
+        # sorted rows = mostly forward reads in the cache file; a batch's order does not matter
+        # (mean loss, BatchNorm statistics), only which rows are in it
+        ix = torch.sort(ix).values
+        return ix, torch.from_numpy(FRONT[ix.numpy()])
+
+    def batches(order, size, drop_last):
+        """Same chunks as range(0, len(order)[-size+1], size), read two batches ahead."""
+        stop = len(order) - size + 1 if drop_last else len(order)
+        pending = collections.deque()
+        for i in range(0, max(stop, 0), size):
+            pending.append(io.submit(gather, order[i:i + size]))
+            if len(pending) > 2: yield pending.popleft().result()
+        while pending: yield pending.popleft().result()
+
+    def batch(ix, fr, train):
+        f = fr.to(dev).permute(0, 3, 1, 2).float() / 255.0
+        g = ix.to(dev); s = T['scan'][g].float()
         if train: f, s = augment(f, s, None, aug)
         return f, raster(s), T['state'][g], T['ids'][g], T['act'][g]
 
@@ -162,8 +236,8 @@ def main():
     for ep in range(a.epochs):
         model.train(); t0 = time.time(); tl = 0.0; nb = 0
         perm = tr_t[torch.randperm(len(tr_t))]
-        for i in range(0, len(perm) - a.bs + 1, a.bs):
-            f, b, st, ids, act = batch(perm[i:i + a.bs], True)
+        for ix, fr in batches(perm, a.bs, True):
+            f, b, st, ids, act = batch(ix, fr, True)
             pred, _ = model(f, b, st, ids)
             loss = F.smooth_l1_loss(pred, (act - mu_t) / sd_t)
             opt.zero_grad(set_to_none=True); loss.backward()
@@ -171,8 +245,8 @@ def main():
             tl += loss.item(); nb += 1
         model.eval(); err = torch.zeros(2, device=dev)
         with torch.no_grad():
-            for i in range(0, len(va_t), 1024):
-                f, b, st, ids, act = batch(va_t[i:i + 1024], False)
+            for ix, fr in batches(va_t, 1024, False):
+                f, b, st, ids, act = batch(ix, fr, False)
                 err += ((model(f, b, st, ids)[0] * sd_t + mu_t) - act).abs().sum(0)
         mae = (err / max(len(va_t), 1)).cpu().numpy()
         # dataset order is (speed, steer): index 0 is speed, index 1 is steer

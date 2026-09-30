@@ -17,6 +17,7 @@ FLAGS="--cam-aug 0 --cam-drop 0 --beam-drop 0 --state-mask 0,0,1,1,0"
 ev() {  # ev <onnx> <outdir> <taskseed> <name> <perturbation>
   local onnx=$1 out=$2 tseed=$3 name=$4 pert=$5
   [ -f "$out/$name/summary.json" ] && return
+  [ -f "$onnx" ] || { echo "  $(basename $out) $name: no $onnx, not evaluating"; return 1; }
   P=""; [ "$pert" != none ] && P="--perturb $pert"
   $PY ml/sim_rollout.py eval --policy "$onnx" --maps $TRAIN_MAPS,uploadtest --n $N --seed $tseed --workers $W $P \
       --out "$out/$name" > "$out/$name.log" 2>&1
@@ -37,6 +38,11 @@ seed)
     echo "== route-hint seed $seed"
     [ -f $run/student.onnx ] || $PY ml/train_policy.py --data $DATA --out $run \
         --epochs $EP --seed $seed $FLAGS > $run.log 2>&1
+    if [ ! -f $run/student.onnx ]; then   # training failed: stop here instead of evaluating nothing
+      echo "  TRAIN_FAILED seed $seed (no $run/student.onnx). End of $run.log:"
+      tail -n 8 $run.log | sed 's/^/    /'
+      exit 1
+    fi
     ev $run/student.onnx $run 3000 eval_sel none
     for p in none lidar camera nocam; do ev $run/student.onnx $run 1000 eval_$p $p; done
   done
