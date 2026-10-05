@@ -42,6 +42,7 @@ vesc_to_odom_node:
 """
 TRUE_S0, TRUE_G = 0.6669, -0.9175      # the simulated car's real straight-ahead servo value and gain
 L = 0.324
+UP = np.array([0.9967, 0.0, -0.0813])        # IMU-frame direction of 'down' along which gravity reads -9.81 (10/5: x vertical)
 LEFT, RIGHT, END, BACK = 1.5, -0.9, 8.77, -1.7      # hallway walls (base_link start at the origin)
 
 
@@ -114,7 +115,10 @@ def make_sim_car(AC, seed=0):
             n = self.rng.normal
             if self.t >= self.nxt['imu']:
                 self.nxt['imu'] += 1 / 200.0
-                self.imu.append((self.t, -w + n(0, 0.0035), n(0, 0.0035), n(0, 0.0035), -9.81 + n(0, 0.02), n(0, 0.02), 0.8))
+                # the OAK-D lies on its side: gravity (and so the yaw axis) is mostly along -x, a little along z
+                gy = -w * UP
+                self.imu.append((self.t, gy[0] + n(0, 0.0035), gy[1] + n(0, 0.0035), gy[2] + n(0, 0.0035),
+                                 -9.81 * UP[0] + n(0, 0.02), n(0, 0.02), -9.81 * UP[2] + n(0, 0.02)))
             if self.t >= self.nxt['core']:
                 self.nxt['core'] += 1 / 50.0
                 e = self.v * 4285.0; e = 0.0 if e < 900 else e                  # the VESC reads 0 below ~900 eRPM
@@ -173,7 +177,7 @@ def test_stock_run_in_the_hallway(AC):
     assert 0.94 * 4285 < out['erpm_gain_measured'] < 1.0 * 4285
 
 
-@pytest.mark.parametrize('target', [1.3, 1.5])
+@pytest.mark.parametrize('target', [0.9, 1.1, 1.3, 1.5])
 def test_fast_run_in_the_hallway(AC, target):
     A = args(AC, target=target)
     car, r, out = run(AC, A)

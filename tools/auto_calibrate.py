@@ -735,12 +735,12 @@ def _term(*_):
 
 def speed_setup(A, cfg):
     """Settings that follow from the speed: --target -> --speed, the expected wheel speed, and for a
-    fast run (above ~1 m/s) the longer front e-stop distance and roll-out allowance."""
+    fast run (faster than the stock 0.8 m/s) the longer front e-stop distance and roll-out allowance."""
     if A.target is not None: A.speed = drive_cmd(A.target, cfg)
     A.v_exp = wheel_speed(A.speed, cfg)
     if A.v_exp <= 0.0: raise SystemExit('/drive %.2f does not move the car (%s mode)' % (A.speed, cfg['mode']))
     if A.v_exp > 2.4: raise SystemExit('%.2f m/s is more than this routine is meant for' % A.v_exp)
-    A.fast = A.v_exp > 1.05
+    A.fast = A.v_exp > 0.85              # anything faster than the stock run's ~0.8 m/s
     A.tail = stop_dist(A.v_exp) if A.fast else 0.35          # roll-out allowed for in the path check
     if A.fast:   # front lidar e-stop: scan age + dead time, braking, laser-to-bumper 0.18 m, margin
         A.aeb_front = max(A.aeb_front, 0.18 + 0.16 * A.v_exp + A.v_exp ** 2 / (2 * DEC_SAFE) + 0.2)
@@ -769,7 +769,7 @@ def main():
     ap.add_argument('--max-dist', type=float, default=14.0)
     ap.add_argument('--max-time', type=float, default=180.0)
     ap.add_argument('--target', type=float, default=None,
-                    help='speed at the wheels, m/s, instead of --speed (erpm mode: 0.79..2.33). Above ~1 m/s '
+                    help='speed at the wheels, m/s, instead of --speed (erpm mode: 0.79..2.33). Above 0.85 m/s '
                          'the run uses the fast plan: longer segments, smaller steering angles, and an '
                          'emergency stop and path check sized for the longer stop')
     A = ap.parse_args()
