@@ -17,9 +17,18 @@ Modes
         --n 60 --seed 1000 --out runs/eval/baseline
     python3 ml/sim_rollout.py collect --policy expert --beta 1 --maps levine,Spielberg_map,comp_track \
         --n 300 --seed 0 --out data/demos
+
+Restartable and shardable (for long runs on machines where processes get killed):
+  * every finished episode is appended to a journal, and a run started again with the same
+    arguments skips the episodes already done; episode files and results are written to a temp
+    file and renamed, so a SIGKILL never leaves a torn file;
+  * --shard K/N runs every N-th episode starting at K and writes <out>/parts/part-K-of-N.jsonl;
+    `merge --out <out>` joins the N parts into episodes.jsonl + summary.json (same files as an
+    unsharded run). The episodes and their seeds are the same either way.
 """
-import argparse, json, math, os, random, sys, time
-from multiprocessing import Pool
+import argparse, fcntl, glob, hashlib, json, math, os, random, re, sys, threading, time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__)); REPO = os.path.dirname(HERE)
@@ -49,23 +58,52 @@ def get_map(name):
     return _MAPS[name]
 
 
-def sample_tasks(maps, n_per_map, seed, min_dist=3.0, max_dist=25.0):
-    """Deterministic (start, goal, path, instruction) set. Same seed -> same tasks."""
-    tasks = []
-    for mi, name in enumerate(maps):
-        rng = np.random.default_rng(seed * 1000 + mi); prng = random.Random(seed * 1000 + mi)
-        _, pl = get_map(name); k = tries = 0
-        while k < n_per_map and tries < n_per_map * 10:
-            tries += 1
-            s = pl.sample_free(rng, 1)[0]; g = pl.sample_free_near(rng, s, min_dist, max_dist)
-            if g is None: continue
-            path = pl.plan(s, g)
-            if path is None or len(path) < 4: continue
-            instr = prng.choice(PARA)(describe_route(path))
-            tasks.append({'map': name, 'start': list(s), 'goal': list(g), 'path': [list(p) for p in path],
-                          'instruction': instr, 'task_id': f'{name}:{seed}:{k}'})
-            k += 1
+def _sample_map(args):
+    """The tasks of one map (map index mi in the list): its own RNG streams, so maps are independent."""
+    name, mi, n_per_map, seed, min_dist, max_dist = args
+    rng = np.random.default_rng(seed * 1000 + mi); prng = random.Random(seed * 1000 + mi)
+    _, pl = get_map(name); k = tries = 0; tasks = []
+    while k < n_per_map and tries < n_per_map * 10:
+        tries += 1
+        s = pl.sample_free(rng, 1)[0]; g = pl.sample_free_near(rng, s, min_dist, max_dist)
+        if g is None: continue
+        path = pl.plan(s, g)
+        if path is None or len(path) < 4: continue
+        instr = prng.choice(PARA)(describe_route(path))
+        tasks.append({'map': name, 'start': list(s), 'goal': list(g), 'path': [list(p) for p in path],
+                      'instruction': instr, 'task_id': f'{name}:{seed}:{k}'})
+        k += 1
     return tasks
+
+
+def sample_tasks(maps, n_per_map, seed, min_dist=3.0, max_dist=25.0, workers=1):
+    """Deterministic (start, goal, path, instruction) set. Same seed -> same tasks.
+    workers > 1 plans the maps in parallel processes (same tasks, same order)."""
+    jobs = [(name, mi, n_per_map, seed, min_dist, max_dist) for mi, name in enumerate(maps)]
+    if workers > 1 and len(jobs) > 1:
+        with ProcessPoolExecutor(min(workers, len(jobs)), initializer=_exit_with_parent) as ex:
+            per_map = list(ex.map(_sample_map, jobs))
+    else:
+        per_map = [_sample_map(j) for j in jobs]
+    return [t for ts in per_map for t in ts]
+
+
+def get_tasks(maps, n_per_map, seed):
+    """sample_tasks(), cached in data/_tasks/: every shard of a sharded run needs the same task
+    list, and route planning takes ~0.6 s a task (minutes per set), too slow to repeat in every
+    shard. The first shard plans (one process per map) while the others wait on the lock. The
+    key includes the map files, so editing a map invalidates the cache."""
+    stats = [[os.path.basename(f), os.path.getsize(f), int(os.path.getmtime(f))]
+             for m in maps for f in sorted(glob.glob(os.path.join(REPO, 'maps', m + '.*')))]
+    key = hashlib.sha1(json.dumps([maps, n_per_map, seed, stats]).encode()).hexdigest()[:16]
+    d = os.path.join(REPO, 'data', '_tasks'); os.makedirs(d, exist_ok=True)
+    fn = os.path.join(d, key + '.json')
+    if not os.path.isfile(fn):
+        with open(fn + '.lock', 'w') as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)              # shards started together: one plans, the rest wait
+            if not os.path.isfile(fn):
+                _write_lines(fn, [json.dumps(sample_tasks(maps, n_per_map, seed, workers=len(maps)))])
+    return json.load(open(fn))
 
 
 def path_len(P):
@@ -129,10 +167,13 @@ def rollout(task, policy, beta=0.0, record=False, seed=0, perturb=None, dt=0.02,
             if perturb: front, scan = perturb_obs(front, scan, perturb, rng)
             bev = PIO.bev_image(scan, -math.pi, inc)
             wz = st[3] / WHEELBASE * math.tan(steer_applied)
+            # no_route: the car-side hint has no route, so policy_bridge would publish zero speed.
+            # (Until 10/5 this flag shared the name `hold` with the stop timer below, which reset
+            # the timer every tick, so episodes never ended at the goal and ran to the timeout.)
             if hint_fn is None:
-                hx, hy = PIO.route_hint(st[:3], path); hold = False
+                hx, hy = PIO.route_hint(st[:3], path); no_route = False
             else:                                   # car-side hint (ml/car_route_check.py)
-                h = hint_fn(st, t); hold = h is None; hx, hy = (0.0, 0.0) if hold else h
+                h = hint_fn(st, t); no_route = h is None; hx, hy = (0.0, 0.0) if no_route else h
             state = np.array([st[3], wz, hx, hy, wz], np.float32)   # [2:4] = route hint (masked out of older models)
             ev, es, edone, _ = pure_pursuit(st[:3], path, wheelbase=WHEELBASE)
             if record:
@@ -145,7 +186,7 @@ def rollout(task, policy, beta=0.0, record=False, seed=0, perturb=None, dt=0.02,
             else:
                 v, s = policy(front, bev, state, ids)
                 act = (float(np.clip(v, 0.0, max_speed)), float(np.clip(s, -MAX_STEER, MAX_STEER)))
-                if hold: act = (0.0, act[1])        # policy_bridge publishes zero speed without a route
+                if no_route: act = (0.0, act[1])    # policy_bridge publishes zero speed without a route
                 se += abs(act[1] - es); sp += abs(act[0] - ev); n += 1
                 res['student_ticks'] += 1
             res['ticks'] += 1
@@ -181,19 +222,78 @@ def rollout(task, policy, beta=0.0, record=False, seed=0, perturb=None, dt=0.02,
 _POLICY = None
 
 
+def _exit_with_parent():
+    """Pool workers: exit as soon as the parent process is gone (SIGKILLed, say). An orphaned
+    worker would otherwise keep the shard's lock file held and the shard would look busy."""
+    ppid = os.getppid()
+
+    def watch():
+        while os.getppid() == ppid: time.sleep(2)
+        os._exit(1)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def _init(policy_path):
     global _POLICY
+    _exit_with_parent()
     _POLICY = None if policy_path == 'expert' else OnnxPolicy(policy_path)
+
+
+def _write_lines(path, lines):
+    """Text file written atomically (temp file + fsync + rename)."""
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'w') as f:
+        f.write(''.join(ln + '\n' for ln in lines)); f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def _episode_file(out_dir, task, seed):
+    return os.path.join(out_dir, task['task_id'].replace(':', '_') + f'_s{seed}.npz')
+
+
+def _save_npz(fn, data):
+    """Atomic (temp file + fsync + rename), so a kill mid-write never leaves a torn .npz for the
+    training cache to trip over. Compressed: rendered frames and rasters compress well, which
+    keeps the disk writes down. np.load reads it exactly like an uncompressed one."""
+    tmp = f'{fn}.tmp.{os.getpid()}'
+    with open(tmp, 'wb') as f:
+        np.savez_compressed(f, **data); f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, fn)
 
 
 def _work(args):
     task, beta, record, seed, perturb, out_dir = args
     res, data = rollout(task, _POLICY, beta=beta, record=record, seed=seed, perturb=perturb)
+    res['ep_seed'] = seed
     if data is not None and out_dir:
-        fn = os.path.join(out_dir, task['task_id'].replace(':', '_') + f'_s{seed}.npz')
-        np.savez(fn, **data)
+        fn = _episode_file(out_dir, task, seed); _save_npz(fn, data)
         res['file'] = os.path.basename(fn); res['frames'] = int(len(data['act']))
     return res
+
+
+def _key(r):
+    return f"{r['task_id']}|{r.get('ep_seed')}"
+
+
+def _read_journal(path, sig, out_dir):
+    """Episodes that an interrupted run of the same job already finished, {key: result}. Empty if
+    there is no journal or it belongs to a different job (other policy file, maps, seed, ...).
+    A line torn by a kill mid-write is dropped, and so is an episode whose .npz is missing."""
+    try:
+        lines = open(path).read().splitlines()
+    except FileNotFoundError:
+        return {}
+    try:
+        if json.loads(lines[0]).get('journal') != sig: return {}
+    except (IndexError, ValueError, AttributeError):
+        return {}
+    done = {}
+    for ln in lines[1:]:
+        try: r = json.loads(ln)
+        except ValueError: continue
+        if 'file' in r and not os.path.isfile(os.path.join(out_dir, r['file'])): continue
+        done[_key(r)] = r
+    return done
 
 
 def summarize(results):
@@ -206,38 +306,110 @@ def summarize(results):
             'mean_speed_err_mps': f('speed_err')}
 
 
+def write_summary(out, results, policy, maps, seed, beta, perturb, secs):
+    results.sort(key=lambda r: (r['task_id'], r.get('ep_seed', 0)))
+    _write_lines(os.path.join(out, 'episodes.jsonl'), [json.dumps(r) for r in results])
+    summ = summarize(results); summ.update({'policy': policy, 'maps': maps, 'seed': seed, 'beta': beta,
+                                            'perturb': perturb, 'secs': round(secs, 1)})
+    by_map = {m: summarize([r for r in results if r['map'] == m]) for m in maps.split(',')}
+    summ['by_map'] = by_map
+    _write_lines(os.path.join(out, 'summary.json'), [json.dumps(summ, indent=1)])
+    print(json.dumps({k: v for k, v in summ.items() if k != 'by_map'}))
+    for m, s in by_map.items():
+        print(f"  {m:16s} success {s['success_rate']:.2f}  collide {s['collision_rate']:.2f}  progress {s['mean_progress']:.2f}")
+
+
+PART_RE = re.compile(r'^part-(\d+)-of-(\d+)\.jsonl$')
+
+
+def merge(out):
+    """Join the N parts of a sharded run (<out>/parts/part-K-of-N.jsonl) into episodes.jsonl and
+    summary.json. Exits non-zero if a part is missing or the parts are from different jobs."""
+    pdir = os.path.join(out, 'parts'); parts = {}
+    for f in glob.glob(os.path.join(pdir, 'part-*.jsonl')):
+        m = PART_RE.match(os.path.basename(f))
+        if m: parts[(int(m.group(1)), int(m.group(2)))] = f
+    Ns = {N for _, N in parts}
+    if len(Ns) != 1: sys.exit(f'merge: expected the parts of one sharding in {pdir}, found {sorted(parts)}')
+    N = Ns.pop(); missing = [k for k in range(N) if (k, N) not in parts]
+    if missing: sys.exit(f'merge: parts {missing} of {N} are not finished yet')
+    results, sig0, secs = [], None, 0.0
+    for k in range(N):
+        lines = open(parts[(k, N)]).read().splitlines()
+        head = json.loads(lines[0]); sig = dict(head['journal']); sig.pop('shard', None)
+        if sig0 is None: sig0 = sig
+        elif sig != sig0: sys.exit(f'merge: part {k} is from a different job:\n  {sig}\n  {sig0}')
+        secs += head.get('secs', 0.0); results += [json.loads(ln) for ln in lines[1:]]
+    keys = [_key(r) for r in results]
+    if len(set(keys)) != len(keys): sys.exit('merge: an episode appears in more than one part')
+    write_summary(out, results, sig0['policy'], sig0['maps'], sig0['seed'], sig0['beta'], sig0['perturb'], secs)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('mode', choices=['eval', 'collect'])
+    ap.add_argument('mode', choices=['eval', 'collect', 'merge'])
     ap.add_argument('--policy', default='expert'); ap.add_argument('--beta', type=float, default=0.0)
     ap.add_argument('--maps', default='levine,Spielberg_map'); ap.add_argument('--n', type=int, default=50)
     ap.add_argument('--seed', type=int, default=1000); ap.add_argument('--repeats', type=int, default=1)
     ap.add_argument('--perturb', default=None, choices=[None, 'lidar', 'camera', 'both', 'nocam'])
     ap.add_argument('--workers', type=int, default=16); ap.add_argument('--out', required=True)
+    ap.add_argument('--shard', default='0/1', help='K/N: run only episodes K, K+N, K+2N, ... and write them to '
+                    '<out>/parts/part-K-of-N.jsonl; `merge --out <out>` then writes episodes.jsonl + summary.json')
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    tasks = sample_tasks(a.maps.split(','), a.n, a.seed)
+    if a.mode == 'merge':
+        merge(a.out); return
+    k, N = (int(x) for x in a.shard.split('/'))
+    assert 0 <= k < N, f'bad --shard {a.shard}'
+    tasks = get_tasks(a.maps.split(','), a.n, a.seed)
     record = a.mode == 'collect'
     jobs = [(t, a.beta, record, a.seed * 7919 + r * 104729 + i, a.perturb, a.out if record else None)
-            for r in range(a.repeats) for i, t in enumerate(tasks)]
+            for r in range(a.repeats) for i, t in enumerate(tasks)][k::N]
     t0 = time.time()
     pol = os.path.abspath(a.policy) if a.policy != 'expert' else 'expert'
     if pol != 'expert' and not os.path.isfile(pol):
         # otherwise every pool worker dies in _init and the pool respawns them forever
         sys.exit(f'policy file not found: {pol}')
-    with Pool(a.workers, initializer=_init, initargs=(pol,)) as p:
-        results = list(p.imap_unordered(_work, jobs, chunksize=1))
-    results.sort(key=lambda r: r['task_id'])
-    with open(os.path.join(a.out, 'episodes.jsonl'), 'w') as f:
-        for r in results: f.write(json.dumps(r) + '\n')
-    summ = summarize(results); summ.update({'policy': a.policy, 'maps': a.maps, 'seed': a.seed, 'beta': a.beta,
-                                            'perturb': a.perturb, 'secs': round(time.time() - t0, 1)})
-    by_map = {m: summarize([r for r in results if r['map'] == m]) for m in a.maps.split(',')}
-    summ['by_map'] = by_map
-    json.dump(summ, open(os.path.join(a.out, 'summary.json'), 'w'), indent=1)
-    print(json.dumps({k: v for k, v in summ.items() if k != 'by_map'}))
-    for m, s in by_map.items():
-        print(f"  {m:16s} success {s['success_rate']:.2f}  collide {s['collision_rate']:.2f}  progress {s['mean_progress']:.2f}")
+    # Resume: finished episodes go to a journal (one fsync'd line each); a run started again with
+    # the same arguments, after a SIGKILL say, keeps those and runs only the rest.
+    pfile = None if pol == 'expert' else [os.path.getsize(pol), int(os.path.getmtime(pol))]
+    sig = {'mode': a.mode, 'policy': pol, 'policy_file': pfile, 'maps': a.maps, 'n': a.n, 'seed': a.seed,
+           'repeats': a.repeats, 'beta': a.beta, 'perturb': a.perturb, 'shard': a.shard}
+    if N == 1:
+        jpath = os.path.join(a.out, 'episodes.partial.jsonl')
+    else:
+        pdir = os.path.join(a.out, 'parts'); os.makedirs(pdir, exist_ok=True)
+        jpath = os.path.join(pdir, f'part-{k}-of-{N}.partial.jsonl')
+    done = _read_journal(jpath, sig, a.out)
+    _write_lines(jpath, [json.dumps({'journal': sig})] + [json.dumps(r) for r in done.values()])  # drops a torn line
+    todo = [j for j in jobs if f"{j[0]['task_id']}|{j[3]}" not in done]
+    if record:   # temp files of episodes a killed run did not finish
+        for j in todo:
+            for f in glob.glob(_episode_file(a.out, j[0], j[3]) + '.tmp.*'): os.remove(f)
+    print(f'{len(jobs)} episodes: {len(done)} already done, {len(todo)} to run', flush=True)
+    results = list(done.values())
+    if todo:
+        try:
+            with open(jpath, 'a') as jf, ProcessPoolExecutor(min(a.workers, len(todo)), initializer=_init,
+                                                             initargs=(pol,)) as ex:
+                for fut in as_completed([ex.submit(_work, j) for j in todo]):
+                    r = fut.result(); results.append(r)
+                    jf.write(json.dumps(r) + '\n'); jf.flush(); os.fsync(jf.fileno())
+        except BrokenProcessPool:
+            # a worker was killed (SIGKILL, OOM killer): everything finished so far is in the journal
+            print(f'a worker process died; {len(results)} of {len(jobs)} episodes are saved, '
+                  f'run again to resume', file=sys.stderr, flush=True)
+            sys.exit(75)
+    secs = time.time() - t0
+    if N > 1:
+        results.sort(key=lambda r: (r['task_id'], r.get('ep_seed', 0)))
+        _write_lines(os.path.join(pdir, f'part-{k}-of-{N}.jsonl'),
+                     [json.dumps({'journal': sig, 'secs': round(secs, 1)})] + [json.dumps(r) for r in results])
+        os.remove(jpath)
+        print(f'part {k}/{N} done: {len(results)} episodes, {secs:.0f} s', flush=True)
+        return
+    write_summary(a.out, results, a.policy, a.maps, a.seed, a.beta, a.perturb, secs)
+    os.remove(jpath)
 
 
 if __name__ == '__main__':
