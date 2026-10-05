@@ -123,3 +123,23 @@ def test_car_rollout_runs_and_plain_rollout_is_unchanged():
     assert res['reached'] and data['geom'].tolist() == pytest.approx([0.27, 0.30])
     assert res['max_speed'] <= 1.0 + 1e-9                                          # the bridge's max_speed
     assert set(data) == set(d0) | {'geom'} and len(data['act']) > 10
+
+
+def test_hint_replans_like_the_bridge():
+    pytest.importorskip('scipy')
+    import sim_rollout as SR
+    task = SR.sample_tasks(['levine'], 1, 4242)[0]; path = [tuple(p) for p in task['path']]
+    c = CM.resolve('car', ['pose_noise=0', 'yaw_noise=0'])
+    assert c['replan'] == 1.0                                         # the bridge's default
+    h = CM.Hint(path, c, np.random.default_rng(0), 'levine')
+    st = np.array([path[0][0], path[0][1], math.atan2(path[1][1] - path[0][1], path[1][0] - path[0][0]), 0.0])
+    hint = h(st, 0.0)
+    assert hint is not None and h.path is not None and hint[0] > 0.3          # points ahead along the route
+    assert math.hypot(h.path[-1][0] - path[-1][0], h.path[-1][1] - path[-1][1]) < 1e-9   # ends at the goal
+    t_plan = h.t_plan; h(st, 0.5); assert h.t_plan == t_plan                   # replans once a second
+    h(st, 1.0); assert h.t_plan == 1.0
+    g = np.array([path[-1][0] + 0.1, path[-1][1], 0.0, 0.0])
+    assert h(g, 2.0) is None                                                  # inside goal_tol: hold
+    c0 = CM.resolve('car', ['replan=0', 'pose_noise=0', 'yaw_noise=0'])
+    h0 = CM.Hint(path, c0, np.random.default_rng(0))
+    assert h0.path == path and h0(st, 0.0) == pytest.approx(PIO.route_hint(st[:3], path))

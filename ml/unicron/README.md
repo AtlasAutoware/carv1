@@ -53,7 +53,8 @@ that matter (ml/car_model.py has the list and where each number comes from): the
 0.27 m and its camera 0.30 m ahead of the rear axle (the sim had both at the axle), ackermann_to_vesc
 runs erpm mode (no speed between 0 and 0.78 m/s; /drive 1.0 = 1.03 m/s), the motor lags (60 ms,
 ~2 m/s^2 ramp), the right steering lock is 0.25 rad until the servo horn is re-centred, the lidar
-drops ~19% of its bins, the route hint comes from a noisy, lagged SLAM pose, and a collision is any
+drops ~19% of its bins, the route hint comes from a noisy, lagged SLAM pose and is replanned every
+second as policy_bridge does, and a collision is any
 part of the body, not the rear axle point. `sim_rollout.py --car <preset>` simulates all of that
 (presets: car = today's car and bridge; car_bridge = with the 10/5 policy_bridge fixes; car_fixed =
 also the horn re-centred; car_train / car_dagger = data collection).

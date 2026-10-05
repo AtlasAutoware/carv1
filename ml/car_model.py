@@ -20,7 +20,8 @@ Measured on the car or read from its configuration on Oct 5, 2026:
             [0, max_speed] (1.0); AEB below 0.35 m within +-0.2 rad of the scan; no route, or
             inside goal_tol (0.4 m) of the goal, -> speed 0 and steering 0.
   sensing   RPLidar C1 on the bench: 581 of 720 bins valid (~19% empty); map-frame pose from
-            SLAM / the particle filter, with noise and ~0.1 s of lag.
+            SLAM / the particle filter, with noise and ~0.1 s of lag; the route replanned from that
+            pose every second (route_source.RouteSource, the bridge's planner).
 Guesses, not measured (flagged so nobody mistakes them for data): servo slew 3 rad/s at the
 wheels, 20 ms servo dead time, lidar/camera ages of 80/100 ms, pose noise 5 cm / 0.03 rad.
 Not modelled at all: what the OAK-D image looks like (the sim render is not a photo), lidar
@@ -44,6 +45,8 @@ CAR = {
     'lidar_drop': 0.19, 'lidar_noise': 0.03,  # share of empty bins, range noise sd (m)
     'cam': 'render',                         # 'render' (sim image), 'perturb' (perturb_obs camera proxy), 'blank'
     'pose_noise': 0.05, 'yaw_noise': 0.03, 'pose_lag': 0.10, 'goal_tol': 0.4,   # route hint, as route_source
+    'replan': 1.0,                           # s between A* replans from the car's pose (policy_bridge: 1.0);
+                                             # 0 = the task's path, planned once from the start (the plain sim)
     'max_speed': 1.0, 'max_steer': 0.4, 'aeb': 0.35,   # policy_bridge
     'speed_map': 'raw',                      # 'raw' (/drive into erpm mode), 'inverse' (bridge inverts it), 'linear'
     'bridge_shift': False,                   # bridge shifts the scan by lidar_x minus the model's training lidar_x
@@ -170,20 +173,34 @@ class History:
 
 
 class Hint:
-    """The car-side route hint: route_source's rules (no hint inside goal_tol) on a noisy, lagged
-    map-frame pose. The route is the task's planned path; replanning it from the car's pose
-    (route_source.RouteSource, what ml/car_route_check.py runs) costs ~0.6-2 s of A* a plan on
-    the sim's maps, too slow to do every second for thousands of episodes."""
-    def __init__(self, path, c, rng):
+    """The car-side route hint on a noisy, lagged map-frame pose, with route_source's rules (no
+    hint inside goal_tol). replan = 0: along the task's path, planned once from the start.
+    replan > 0: what policy_bridge does, route_source.RouteSource replanning A* from the car's
+    pose on the map every `replan` s; `path` is then the current route (None when it has none)."""
+    def __init__(self, path, c, rng, map_name=None):
         self.path, self.c, self.rng = path, c, rng
-        self.goal = path[-1]
+        self.goal = path[-1]; self.rs = None; self.t_plan = -1e9
+        if c['replan'] > 0:
+            from route_source import RouteSource, occ_from_grid
+            from sim_core import load_map
+            occ, res, origin = load_map(os.path.join(REPO, 'maps', f'{map_name}.yaml'))
+            msg = (np.flipud(occ).astype(np.int8) * 100).ravel()          # what /map carries
+            self.rs = RouteSource(goal_tol=c['goal_tol'])
+            self.rs.set_map(occ_from_grid(msg, occ.shape[1], occ.shape[0]), res, origin)
+            self.rs.set_goal(tuple(self.goal)); self.path = None
 
-    def __call__(self, st_lagged):
+    def __call__(self, st_lagged, t=0.0):
         c = self.c
         x = st_lagged[0] + self.rng.normal(0, c['pose_noise']); y = st_lagged[1] + self.rng.normal(0, c['pose_noise'])
         th = st_lagged[2] + self.rng.normal(0, c['yaw_noise'])
-        if math.hypot(self.goal[0] - x, self.goal[1] - y) < c['goal_tol']: return None
-        return PIO.route_hint((x, y, th), self.path)
+        if self.rs is None:
+            if math.hypot(self.goal[0] - x, self.goal[1] - y) < c['goal_tol']: return None
+            return PIO.route_hint((x, y, th), self.path)
+        if t - self.t_plan >= c['replan']:
+            self.t_plan = t; self.rs.replan((x, y, th), t)
+        h, _ = self.rs.hint((x, y, th), t)
+        self.path = self.rs.path
+        return h
 
 
 class OU:

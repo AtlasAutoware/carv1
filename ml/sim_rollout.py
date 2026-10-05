@@ -240,7 +240,7 @@ def rollout_car(task, policy, car, beta=0.0, record=False, seed=0, dt=0.02, sens
     inc = 2 * math.pi / BEAMS
     timeout = time_mult * L / 0.8 + 8.0
     hist = CM.History(max(c['lidar_lat'], c['cam_lat'], c['pose_lag']) + 2 * dt)
-    hint = CM.Hint(path, c, rng); motor = CM.Motor(c, dt); servo = CM.Servo(c, dt)
+    hint = CM.Hint(path, c, rng, task['map']); motor = CM.Motor(c, dt); servo = CM.Servo(c, dt)
     dart = CM.OU(c['dart'], c['dart_tau'], 1.0 / sensor_hz, rng)
     # policy_bridge (10/5) centres the raster where the model's training had the lidar
     bev_dx = c['lidar_x'] - policy.lidar_x if (c['bridge_shift'] and policy is not None) else 0.0
@@ -268,13 +268,14 @@ def rollout_car(task, policy, car, beta=0.0, record=False, seed=0, dt=0.02, sens
             if c['cam'] == 'render': fseen = front
             elif c['cam'] == 'perturb': fseen = perturb_obs(front, seen, 'camera', rng)[0]
             else: fseen = np.zeros_like(front)
-            h = hint(hist.at(t - c['pose_lag']))
+            h = hint(hist.at(t - c['pose_lag']), t)
             if h is None:            # inside goal_tol: policy_bridge publishes zero speed and steering
                 v_cmd = s_cmd = 0.0
             else:
                 wz = st[3] / WB * math.tan(steer_now)
                 state = np.array([st[3], wz, h[0], h[1], wz], np.float32)
-                ev, es, _, _ = pure_pursuit(st[:3], path, wheelbase=WB, v_max=c['expert_vmax'])
+                # the expert follows the route the hint comes from (the car-side route when replanning)
+                ev, es, _, _ = pure_pursuit(st[:3], hint.path if hint.path else path, wheelbase=WB, v_max=c['expert_vmax'])
                 if record:
                     rec['front'].append(front); rec['bev'].append(PIO.bev_image(scan, -math.pi, inc))
                     rec['state'].append(state); rec['scan'].append(scan.astype(np.float16)); rec['act'].append((ev, es))
