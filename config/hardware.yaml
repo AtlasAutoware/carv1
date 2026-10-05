@@ -52,6 +52,10 @@ drive_node:
 
 rplidar_node:
   ros__parameters:
+    source: 'topic'             # topic = Slamtec SDK driver (rplidar_ros) owns the port and
+                                #         publishes /scan_raw; we regrid it (RPLIDAR C1 / S-series)
+                                # serial = pip rplidar direct read (A1/A2/A3 only)
+    raw_scan_topic: '/scan_raw'
     port: '/dev/sensors/rplidar'  # stable udev symlink (CP210x 10c4:ea60); not volatile ttyUSB0
     baudrate: 460800            # RPLIDAR C1 = 460800 (A1/A2: 115200, A3/S1: 256000)
     scan_topic: '/scan'
@@ -69,10 +73,11 @@ velocity_ekf:
     out_topic: '/ekf/odom'
     l_r: 0.17145                # m, CG to rear axle
 
-# Camera on the car is an Orbbec Gemini 335 (camera_backend:=orbbec, the default).
+# Camera on the car is the Luxonis OAK-D Pro (camera_backend:=oakd, the default since 9/23);
+# the Orbbec Gemini 335 path (camera_backend:=orbbec) is kept for when a Gemini is fitted.
 # Its driver is launched + remapped in launch/car_bringup_launch.py (official
 # orbbec_camera node: 640x480@30 color, accel+gyro 200 Hz synced, depth off unless
-# use_depth:=true). The oakd_camera params below only apply to camera_backend:=oakd.
+# use_depth:=true) -- that paragraph describes the Orbbec path. The oakd_camera params below are the default path.
 oakd_camera:
   ros__parameters:
     width: 640
@@ -124,6 +129,27 @@ raceline_mpc:
     profile_v_max: 8.0          # m/s profile ceiling
     v_scale: 0.5                # global speed cap — raise as confidence grows
     control_hz: 50.0
+    # ── multi-car avoidance (RoboRacer head-to-head, up to 4 cars on track) ──
+    # Lidar clusters that are car-sized AND isolated (free space both sides) are
+    # tracked as opponents; the strategist (race_brain) shifts the MPC reference to
+    # pass / cover / give room and a follow governor keeps a gap behind a slower
+    # car instead of tripping the AEB.  AEB + watchdog stay in front of the actuator.
+    avoid_opponents: true
+    avoid_max_offset: 0.45      # m off the raceline (track half-width minus car + margin)
+    avoid_offset_rate: 0.03     # m per 50 Hz tick = 1.5 m/s lateral reference slew
+    avoid_side_clearance: 0.55  # m to sit beside an opponent when passing
+    avoid_attack_range: 6.0     # m, engage a slower car this far ahead
+    avoid_defend_range: 5.0
+    avoid_contact_range: 1.0    # m, "alongside" bubble -> EVADE / complete pass
+    avoid_follow_gap: 1.0       # m standing gap behind a car we cannot pass yet
+    avoid_time_headway: 0.6     # s, gap grows with speed
+    avoid_follow_gain: 1.5      # 1/s convergence onto the car ahead
+    avoid_follow_cone: 0.5      # rad half-angle around the commanded steer
+    avoid_min_follow_speed: 0.0
+    avoid_allow_boost: false    # keep ATTACK at <= raceline speed on hardware
+    avoid_max_range: 8.0        # m detector range
+    avoid_wall_margin: 0.20     # m kept from the lidar-measured walls
+    avoid_publish_hz: 10.0      # /opponents (PoseArray) + /avoidance_state (JSON)
 
 gamepad_teleop:
   ros__parameters:

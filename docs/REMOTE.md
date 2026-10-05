@@ -21,16 +21,75 @@ own 1 s timeout sits behind that. `~/restart_remote.sh` restarts everything clea
 ## Networks — `hardware/scripts/carnet.sh` (on the car, needs sudo)
 | Mode | Command | Range / notes |
 |---|---|---|
-| Hotspot 5 GHz (default) | `carnet.sh hotspot` | ~30–50 m open air, best bandwidth. Car = 10.42.0.1. Autoconnects at boot. |
-| Hotspot 2.4 GHz | `carnet.sh hotspot24` | roughly 2× the range, fewer frames; use outdoors / big rooms |
-| **Mesh / any WiFi as client** | `carnet.sh client <SSID> [pw]` | the car roams between mesh nodes (eero, Orbi, Deco, a school WLAN without client isolation), so range = the mesh footprint. Power-save is disabled for low latency. Laptop joins the same network; find the car via `carnet.sh status` or `ubuntu.local`. |
+| Hotspot (default) | `carnet.sh hotspot` | On the USB T3U: 2.4 GHz ch 6, 20 MHz, WPA3, the long-range setting. Car = 10.42.0.1. Autoconnects at boot. Without a T3U: the onboard card, 5 GHz ch 149, WPA2. |
+| Hotspot 5 GHz | `carnet.sh hotspot5` | the T3U on 5 GHz ch 149: more bandwidth, roughly half the range |
+| **Mesh / any WiFi as client** | `carnet.sh client <SSID> [pw]` | on the onboard card: the car roams between mesh nodes (eero, Orbi, Deco, a school WLAN without client isolation), so range = the mesh footprint. Power-save is disabled for low latency. Laptop joins the same network; find the car via `carnet.sh status` or `ubuntu.local`. |
 | Phone tether (uplink) | `carnet.sh tether` | phone on USB with USB tethering on; the car gets internet; pair with Tailscale below |
-| Status | `carnet.sh status` | interface, SSID, signal, IPs |
+| Status | `carnet.sh status` | both adapters, SSID, signal, IPs |
 
-The first `hotspot`/`hotspot24` call needs `ATLASCAR_PSK=<password>` in the environment to create the
-profile; afterwards it is stored by NetworkManager. One radio: hotspot and client modes exclude
-each other. A note from bring-up: `nmcli device wifi hotspot ... band a` picks channel 7 (a 2.4 GHz
-channel) and then fails with "supplicant-timeout"; the script sets channel 36 explicitly.
+The first `hotspot` call needs `ATLASCAR_PSK=<password>` in the environment to create the
+profile; afterwards it is stored by NetworkManager. With the T3U plugged in there are two radios: the
+hotspot stays on the T3U while the onboard card joins a router or mesh. Without it, hotspot and client
+modes exclude each other. Notes from bring-up: `nmcli device wifi hotspot ... band a` picks channel 7 (a
+2.4 GHz channel) and then fails with "supplicant-timeout"; and the onboard card boots with no country
+set (country 00), which marks channels 36-144 "No IR", so the old ch 36 hotspot failed every 30 s
+("Failed to start AP functionality"). Channel 149 is allowed either way.
+
+## The T3U pair (2026-10-05)
+A TP-Link Archer T3U (RTL8812BU, 2x2) on each end: one on a Jetson USB port, one on the pit laptop.
+- **Driver.** NVIDIA's L4T kernel ships no rtw88, so the car's T3U had no driver at all.
+  `hardware/scripts/install_t3u_driver.sh` builds lwfinger/rtw88 (a56bcd2) against the kernel headers
+  (35 s on the Orin), installs only rtw_core/rtw_usb/rtw_8822b/rtw_8822bu, and installs the firmware
+  uncompressed (this kernel cannot load .zst firmware). Rerun after a kernel update. The laptop uses the
+  in-kernel rtw88_8822bu.
+- **Why 2.4 GHz ch 6.** For range: about 7.5 dB less free-space loss than 5.7 GHz, so roughly twice the
+  distance at the same signal. A scan from the laptop at school found 19 networks on ch 1, 7 on ch 11 and
+  2 on ch 6. 20 MHz wide, not 40: half the noise bandwidth and no overlap with neighbours.
+- **Transmit power.** rtw88 ignores `iw set txpower`; power comes from the efuse and the regulatory table,
+  so the car loads US rules at boot (`cfg80211 ieee80211_regdom=US`): FCC tables instead of the
+  world-safe minimum.
+- **USB 2 mode on both ends** (`switch_usb_mode=n` in /etc/modprobe.d/atlas-t3u.conf). rtw88 normally
+  switches the adapter to USB 3, and USB 3 radiates broadband noise around 2.4 GHz. The link needs well
+  under USB 2's bandwidth. For the same reason keep the car's T3U away from the OAK-D's USB 3 cable;
+  a short USB 2 extension that lifts the adapter above the chassis helps both.
+- **Security.** WPA3-SAE with protected management frames required: the same AES-CCMP data encryption as
+  WPA2 (so no speed cost), but the password cannot be attacked offline and nobody can knock the car off
+  with forged deauth frames. GCMP would not be faster here: the chip encrypts only CCMP in hardware, and
+  GCMP's tag is 16 bytes per packet against CCMP's 8.
+- **Laptop profile.** "AtlasCar" is bound to the laptop T3U's MAC, never takes the default route or DNS
+  (the laptop stays on its normal Wi-Fi for internet), has power save off, and is locked to the car
+  T3U's BSSID on ch 6. The BSSID lock matters: without it NetworkManager scanned all 36 channels every
+  few seconds, and each scan stalled the link for ~100-125 ms (ping avg 20-30 ms, spikes to 150 ms).
+  With it, no scans in 72 s and ping p50 1.6 ms / p99 16 ms. "AtlasCar-fallback" (priority 40, any
+  BSSID/band) joins the onboard-card fallback. The laptop's other Wi-Fi profiles are bound to its
+  internal card's MAC, so the T3U never joins the school network.
+- **Measured on the bench**, adapters about 1 m apart: signal -32/-34 dBm, MCS 15 both ways
+  (144 Mbit/s PHY), iperf3 56 Mbit/s laptop->car and 40 Mbit/s car->laptop, 0% loss. For comparison
+  the onboard card earlier the same morning (5 GHz ch 149, world rules) reported 7 dBm transmit power
+  and -60/-67 dBm with the laptop in the same place; part of that gap is the band, not the card.
+  Range has not been measured yet.
+
+## Video from the camera's own encoder (2026-10-05)
+`run_remote.sh` now starts `oakd_camera` with `video_kbps:=1000`: the OAK-D's hardware encoder makes
+H.264 (baseline, 640x360, 30 fps, constant bitrate, keyframe every 15 frames) on `/oakd/video`, and
+the Jetson only forwards the bytes. `web_pilot` serves them on `/vstream` (u32 length, u8 flags,
+Annex-B frame); a viewer more than 6 frames behind skips to the newest keyframe, so a slow link
+costs frames, not latency. The page decodes with WebCodecs and falls back to the old MJPEG
+`/stream` when it cannot. `VIDEO_KBPS=0` turns it off; `VIDEO_CODEC=h265` switches the encoder (the
+encoder has no AV1, and the Orin Nano has no hardware encoder at all). Since 10/5 the default is H.265 (`VIDEO_CODEC=h264` for browsers without an H.265 decoder): at the same 1 Mbit/s it looked much better.
+
+- **Open it at localhost.** Browsers expose WebCodecs only on secure pages (HTTPS or localhost), so
+  on plain `http://10.42.0.1:8080/` the page shows MJPEG. `tools/pilot_tunnel.sh` opens the same page
+  at `http://localhost:8081/` through SSH, where it decodes H.264. Brave there reported H.264, H.265,
+  AV1 and VP9 decoders.
+- **Wi-Fi priority.** Sockets are marked by DSCP, which the kernel maps to the four WMM queues:
+  video CS1 (background), commands, status and the lidar plot CS6 (voice).
+- **Measured** over the T3U pair, 10 s each: H.264 1,036 kbit/s at 640x360 30 fps against the old
+  MJPEG's 1,302 kbit/s at 480x270 15 fps, so 3.6x the pixels per second on 20% less data. Capture to
+  Jetson: raw frames p50 54 ms, H.264 p50 64 ms. Ping 4.0 ms with either stream running, 2.2 ms idle.
+- **Not used: wfb-ng.** The long-range FPV approach (monitor mode, broadcast, FEC, no association)
+  needs a driver that sends injected frames at the rate in their radiotap header. rtw88 sends frames
+  that have no associated station at a fixed 6 Mbit/s; wfb-ng's own driver work targets RTL8812EU.
 
 ## Beyond WiFi: cellular / anywhere (Tailscale)
 1. Give the car internet: `carnet.sh tether` (phone on USB), or a USB LTE modem (Quectel EC25 /

@@ -16,22 +16,46 @@
 #   Over the USB-C link the same page is at http://192.168.55.1:8080/ .
 #   tools/remote_pilot.py (python + pygame, UDP 5005) still works as an alternative.
 # ─────────────────────────────────────────────────────────────────────────────
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source "$HOME/f1tenth_ws/install/setup.bash"
 source "$HOME/atlas_ws/install/setup.bash"
 
 # One stack owns the VESC: stop whatever else is running.
 pkill -f "car_bringup_launch.py"  >/dev/null 2>&1 || true
 pkill -f "bringup_launch.py"      >/dev/null 2>&1 || true
-pkill -f "vesc_driver_node|drive_node|orbbec_camera_node|component_container|remote_joy_bridge|mjpeg_server|web_pilot" >/dev/null 2>&1 || true
-sleep 1
+# rplidar_node has to be in this list: it owns /dev/ttyUSB0 exclusively, so a survivor from
+# an earlier run makes the new one die with SL_RESULT_OPERATION_TIMEOUT and the page shows
+# "lidar /scan: no data" while everything else looks healthy.
+pkill -f "vesc_driver_node|drive_node|rplidar_node|orbbec_camera_node|oakd_camera|component_container|remote_joy_bridge|mjpeg_server|web_pilot|depth_fusion|episode_logger|particle_filter|slam_toolbox|pose_relay" >/dev/null 2>&1 || true
+# Killing the `ros2 launch` parent does not always take its children with it, and a surviving
+# vesc_to_odom_node keeps serving parameters from the config file it started with -- which is
+# how a corrected wheelbase and steering centre can sit in the YAML for a day without being
+# in effect. Match the executables themselves, by their install paths.
+pkill -f "vesc_ackermann|f1tenth_stack|ackermann_mux|throttle_interpolator|joy_teleop|joy_linux_node" >/dev/null 2>&1 || true
+sleep 2
 
 export F1TENTH_CONTROLLER=f310        # joy_teleop uses the F310 profile even with no pad on the Jetson
 trap 'echo; echo "stopping remote mode"; kill 0' INT TERM
 
 ros2 launch f1tenth_stack bringup_launch.py &
 sleep 4
+# Camera: the car carries the OAK-D Pro again (the Gemini 335 is gone, 9/18), so that is
+# the default. CAMERA=orbbec ./run_remote.sh brings the Gemini path back. Every consumer
+# (web_pilot FPV, episode_logger, policy_bridge) reads $CAM_TOPIC, so nobody is left
+# subscribed to a topic that no driver publishes.
+CAMERA="${CAMERA:-oakd}"
+CFG="$HOME/atlas_ws/src/atlasautoware/config/hardware.yaml"
+if [ "$CAMERA" = "oakd" ]; then CAM_TOPIC=/oakd/rgb; else CAM_TOPIC=/camera/color/image_raw; fi
+export ATLAS_IMAGE_TOPIC="$CAM_TOPIC"
 if [ "${1:-}" != "novideo" ]; then
+  if [ "$CAMERA" = "oakd" ]; then
+    # oakd_camera publishes /oakd/rgb (bgr8), /oakd/camera_info and /oakd/imu (body axes)
+    # On-camera H.265 for the pilot page (VIDEO_KBPS=0 turns it off; VIDEO_CODEC=h264 for browsers
+    # without an H.265 decoder: the page reports its decoders in /tmp/remote.log).
+    ros2 run f1tenth_gym_ros oakd_camera --ros-args --params-file "$CFG" \
+        -p video_kbps:=${VIDEO_KBPS:-1000} -p video_codec:=${VIDEO_CODEC:-h265} > /tmp/remote_camera.log 2>&1 &
+    sleep 4
+  else
     # Depth on: the fusion node folds it into /scan_fused so the brake and planner see
     # obstacles above/below the lidar plane. DEPTH=0 ./run_remote.sh turns it off
     # (e.g. if the USB-2 cable cannot carry both streams; 640x480@15 should fit).
@@ -51,6 +75,7 @@ if [ "${1:-}" != "novideo" ]; then
         ros2 run f1tenth_gym_ros depth_fusion --ros-args -p pitch_deg:=${CAM_PITCH_DEG:-0.0} \
             > /tmp/depth_fusion.log 2>&1 &
     fi
+  fi
 fi
 # ── Prime the odometry ────────────────────────────────────────────────────────
 # vesc_to_odom runs with use_servo_cmd_to_calc_angular_velocity, and its VESC-state
@@ -84,12 +109,30 @@ if [ "${LOCALIZE:-on}" != "off" ]; then
     fi
 fi
 
+# ── Car detector, off by default ──────────────────────────────────────────────
+# DETECT=1 ./run_remote.sh runs YOLOv8 on the GPU. The engine is FP16 and device-built,
+# so it does not survive a JetPack change; rebuild it with hardware/scripts/build_tensorrt_engine.sh.
+# Measured 4.3 ms a frame against roughly 130 ms for the same model on the CPU, which is the
+# difference between keeping up with the 15 Hz camera and not.
+if [ "${DETECT:-0}" = "1" ]; then
+    # build_tensorrt_engine.sh writes here (the old default, models/car_yolov8_640_fp16.engine,
+    # was never produced by anything, so DETECT=1 always printed "no engine" and skipped)
+    ENGINE="${ENGINE:-${XDG_CACHE_HOME:-$HOME/.cache}/atlasautoware/car_yolov8_640.engine}"
+    if [ -f "$ENGINE" ]; then
+        ros2 run f1tenth_gym_ros camera_perception --ros-args -p backend:=tensorrt \
+            -p model_path:="$ENGINE" > /tmp/camera_perception.log 2>&1 &
+        echo "detector: TensorRT $(basename "$ENGINE")"
+    else
+        echo "detector: no engine at $ENGINE, skipping"
+    fi
+fi
+
 # lowbw: cellular / Tailscale — smaller video and a longer command watchdog (PILOT_TIMEOUT, s)
 if [ "${1:-}" = "lowbw" ]; then VID="-p width:=320 -p quality:=45 -p fps:=10.0"; else VID=""; fi
-ros2 run f1tenth_gym_ros web_pilot --ros-args -p timeout:=${PILOT_TIMEOUT:-0.25} $VID &
+ros2 run f1tenth_gym_ros web_pilot --ros-args -p timeout:=${PILOT_TIMEOUT:-0.25} -p image_topic:=$CAM_TOPIC $VID &
 # demonstration recorder: idle until the page (or /episode/cmd) starts an episode
 ros2 run f1tenth_gym_ros episode_logger --ros-args -p root:=${EPISODE_ROOT:-$HOME/episodes} \
-    -p image_topic:=/camera/color/image_raw -p odom_topic:=/vesc/odom -p imu_topic:=/oakd/imu \
+    -p image_topic:=$CAM_TOPIC -p odom_topic:=/vesc/odom -p imu_topic:=/oakd/imu \
     > /tmp/episode_logger.log 2>&1 &
 
 echo "──────────────────────────────────────────────────────────────"

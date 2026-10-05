@@ -34,9 +34,16 @@ class LikelihoodField:
         self.occ = occ
         self.z_hit, self.z_rand, self.sigma = z_hit, z_rand, sigma_hit
         self.max_range_default = max_dist
-        # precompute the per-distance likelihood is not possible (continuous), but the
-        # gaussian is cheap; keep a constant background for z_rand
-        self._norm = 1.0
+        # The beam log-likelihood is a function of the cell distance alone, and the
+        # distances are fixed once the map is loaded — so bake it into the map. score()
+        # then never evaluates exp or log, which was two thirds of its cost.
+        self._ll = np.log(z_hit * np.exp(-(self.dist * self.dist) /
+                                         (2.0 * sigma_hit * sigma_hit)) + z_rand
+                          ).astype(np.float32).ravel()
+        self._ll_oob = np.float32(np.log(z_hit * np.exp(-(max_dist * max_dist) /
+                                                        (2.0 * sigma_hit * sigma_hit)) + z_rand))
+        self._inv_res = np.float32(1.0 / self.res)
+        self._ox32, self._oy32 = np.float32(self.ox), np.float32(self.oy)
 
     def world_to_px(self, x, y):
         # ROS maps: image row 0 is the TOP, which is the MAX y. origin is the lower-left.
@@ -58,18 +65,22 @@ class LikelihoodField:
     def score(self, particles, ex, ey):
         """Log-likelihood of each particle given beam endpoints (ex, ey) in the SENSOR
         frame (metres, x forward, y left). particles: [N, 3] (x, y, theta)."""
-        N = len(particles); B = len(ex)
-        c, s = np.cos(particles[:, 2]), np.sin(particles[:, 2])
-        # world endpoints for every particle: [N, B]
-        wx = particles[:, 0:1] + np.outer(c, ex) - np.outer(s, ey)
-        wy = particles[:, 1:2] + np.outer(s, ex) + np.outer(c, ey)
-        col = ((wx - self.ox) / self.res).astype(np.int32)
-        row = (self.H - (wy - self.oy) / self.res).astype(np.int32)
-        inb = (col >= 0) & (col < self.W) & (row >= 0) & (row < self.H)
-        d = np.full((N, B), self.max_range_default, np.float32)
-        d[inb] = self.dist[row[inb], col[inb]]
-        p = self.z_hit * np.exp(-(d * d) / (2 * self.sigma * self.sigma)) + self.z_rand
-        return np.log(p).sum(1)
+        p = np.asarray(particles, np.float32)
+        ex = np.asarray(ex, np.float32); ey = np.asarray(ey, np.float32)
+        c, s = np.cos(p[:, 2]), np.sin(p[:, 2])
+        # world endpoints for every particle: [N, B]. float32 throughout — the map cells
+        # are 5 cm, so single precision is three orders of magnitude finer than the grid.
+        wx = p[:, 0:1] + c[:, None] * ex - s[:, None] * ey
+        wy = p[:, 1:2] + s[:, None] * ex + c[:, None] * ey
+        col = ((wx - self._ox32) * self._inv_res).astype(np.int32)
+        row = (np.float32(self.H) - (wy - self._oy32) * self._inv_res).astype(np.int32)
+        inb = col >= 0; inb &= col < self.W; inb &= row >= 0; inb &= row < self.H
+        # clamp and gather unconditionally, then patch the strays: one flat take beats
+        # a boolean fancy-index on both sides of an assignment
+        np.clip(col, 0, self.W - 1, out=col); np.clip(row, 0, self.H - 1, out=row)
+        flat = row; flat *= self.W; flat += col
+        ll = self._ll[flat]
+        return np.where(inb, ll, self._ll_oob).sum(1, dtype=np.float32)
 
 
 class ParticleFilter:
@@ -83,6 +94,7 @@ class ParticleFilter:
         self.P = None                                  # [N, 3]
         self.w = None
         self.last_odom = None
+        self._beams_key = None                         # subsample layout of the last scan
 
     def init_global(self):
         self.P = self.f.sample_free(self.n, self.rng)
@@ -121,14 +133,21 @@ class ParticleFilter:
         """Reweight by the scan (subsampled to self.beams), then resample if degenerate."""
         r = np.asarray(ranges, np.float32)
         n = len(r)
-        step = max(1, n // self.beams)
-        idx = np.arange(0, n, step)
-        r = r[idx]; ang = angle_min + angle_inc * idx
-        good = np.isfinite(r) & (r > 0.05) & (r < max_range)
-        r, ang = r[good], ang[good]
-        if len(r) < 5:
+        key = (n, angle_min, angle_inc)
+        if key != self._beams_key:                 # the lidar layout is fixed; the bearings
+            step = max(1, n // self.beams)         # and their sin/cos are not per-scan work
+            idx = np.arange(0, n, step)
+            ang = (angle_min + angle_inc * idx).astype(np.float32)
+            self._beams_key = key
+            self._beam_idx = idx
+            self._beam_cos = np.cos(ang); self._beam_sin = np.sin(ang)
+        r = r[self._beam_idx]
+        # NaN fails `> 0.05`, so isfinite is redundant
+        good = (r > 0.05) & (r < max_range)
+        if good.sum() < 5:
             return
-        ex = r * np.cos(ang); ey = r * np.sin(ang)
+        r = r[good]
+        ex = r * self._beam_cos[good]; ey = r * self._beam_sin[good]
         ll = self.f.score(self.P, ex, ey)
         ll -= ll.max()
         w = np.exp(ll) * self.w

@@ -13,46 +13,67 @@ policy, and the speed is clamped to `max_speed`.
         -p instruction:="turn left, then go straight to the end and stop"
 
 Instruction can also be changed live on /policy/instruction (std_msgs/String).
+
+Route-hint models (trained 9/25 on, ONNX config state_mask[2:4] = 1) also need a point
+2 m ahead on the planned route in state[2:4]. For those the bridge plans the route itself:
+map-frame pose from `pose_topic` (SLAM via pose_relay, or the particle filter), the map from
+`map_topic`, the goal from `goal` ("x,y" in map metres), /goal_pose (RViz 2D Goal Pose) or
+/policy/goal ("x,y"). A* (route_source.RouteSource, same planner the sim tasks used) runs
+in a background thread every `replan` s. No map, goal, fresh pose or route -> zero speed;
+inside `goal_tol` of the goal -> zero speed. Older models keep the IMU in those slots
+(masked to zero inside the network) and ignore all of this.
+
+Two corrections for the real car (10/5):
+  * sensor position. Models record where the lidar was in training (ONNX config sensor_geom;
+    none = the sim's lidar at the rear axle). The car's laser is `lidar_x` (0.27 m, the static
+    TF) ahead of base_link, so the scan is shifted by the difference before it is rasterised,
+    and the bird's-eye view is centred where the network expects it. (The camera cannot be
+    corrected this way; models trained with the camera at the rear axle see it 0.30 m off.)
+  * speed. ackermann_to_vesc runs control_mode 'erpm', where a /drive speed is not a speed:
+    1.0 gives 1.03 m/s and nothing between 0 and 0.78 m/s exists. With speed_map 'inverse'
+    (default) the bridge sends the /drive value that makes the wheels roll at the speed the
+    policy asked for (the 0.78 m/s floor where it asked for less, zero below `coast_below`).
+    speed_map 'raw' publishes the policy's number as before. The erpm_* parameters must match
+    vesc.yaml.
+Lidar-only models (ONNX config inputs without 'camera') do not wait for camera frames.
 """
-import hashlib, json, math, os, time
+import json, math, os, threading, time
 import numpy as np, cv2
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, Imu, LaserScan
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
+from geometry_msgs.msg import PoseStamped
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import String
 
-FRONT_HW, BEV_HW, MAX_TOK, BEV_EXTENT = (96, 128), (96, 96), 24, 6.0
-
-
-def text_ids(s, n=4096, max_tok=MAX_TOK):           # keep identical to ml/train_student.py
-    toks = ''.join(c if c.isalnum() else ' ' for c in s.lower()).split()[:max_tok]
-    ids = [1 + int(hashlib.md5(t.encode()).hexdigest(), 16) % (n - 1) for t in toks]
-    return ids + [0] * (max_tok - len(ids))
-
-
-def bev_image(ranges, angle_min, angle_inc, size=BEV_HW[0], extent=BEV_EXTENT):  # same as episodes_to_lerobot
-    img = np.zeros((size, size), np.uint8)
-    r = np.asarray(ranges, np.float32); n = len(r)
-    ang = angle_min + angle_inc * np.arange(n)
-    ok = np.isfinite(r) & (r > 0.05) & (r < extent)
-    x, y = r[ok] * np.cos(ang[ok]), r[ok] * np.sin(ang[ok])
-    px = (size / 2 - x / extent * size / 2).astype(int); py = (size / 2 - y / extent * size / 2).astype(int)
-    m = (px >= 0) & (px < size) & (py >= 0) & (py < size)
-    img[px[m], py[m]] = 255
-    img[size // 2 - 1:size // 2 + 2, size // 2 - 1:size // 2 + 2] = 128
-    return img
+try:                                                 # installed package
+    from f1tenth_gym_ros.policy_io import (text_ids, bev_image, front_image, make_feed,
+                                           action_order_of, split_action, front_clear,
+                                           model_config, sensor_geom, erpm_command, ERPM_MODE, FRONT_HW)
+    from f1tenth_gym_ros.route_source import RouteSource, model_uses_hint, occ_from_grid, parse_goal
+except ImportError:                                  # run from a source checkout
+    from policy_io import (text_ids, bev_image, front_image, make_feed,
+                           action_order_of, split_action, front_clear,
+                           model_config, sensor_geom, erpm_command, ERPM_MODE, FRONT_HW)
+    from route_source import RouteSource, model_uses_hint, occ_from_grid, parse_goal
 
 
 class PolicyBridge(Node):
     def __init__(self):
         super().__init__('policy_bridge')
         P = (('model', 'models/student.onnx'), ('instruction', 'go straight to the end and stop'),
-             ('image_topic', '/camera/color/image_raw'), ('scan_topic', '/scan'), ('odom_topic', '/odom'),
+             ('image_topic', '/oakd/rgb'), ('scan_topic', '/scan'), ('odom_topic', '/odom'),
              ('imu_topic', '/oakd/imu'), ('drive_topic', '/drive'), ('rate', 10.0), ('max_speed', 1.0),
-             ('max_steer', 0.4), ('aeb_dist', 0.35), ('stale', 0.5), ('threads', 2))
+             ('max_steer', 0.4), ('aeb_dist', 0.35), ('stale', 0.5), ('threads', 4),
+             ('pose_topic', '/pf/pose/odom'), ('map_topic', '/map'), ('goal', ''), ('replan', 1.0),
+             ('goal_tol', 0.4), ('pose_stale', 0.5),
+             ('lidar_x', 0.27), ('speed_map', 'inverse'), ('coast_below', 0.2),
+             ('erpm_max_speed', ERPM_MODE['max_speed']), ('erpm_min', ERPM_MODE['min_erpm']),
+             ('erpm_max', ERPM_MODE['max_erpm']), ('erpm_deadband', ERPM_MODE['deadband']),
+             ('erpm_gain', ERPM_MODE['erpm_gain']))
         for k, v in P: self.declare_parameter(k, v)
         g = lambda n: self.get_parameter(n).value
         self.p = {k: g(k) for k, _ in P}
@@ -61,8 +82,24 @@ class PolicyBridge(Node):
         if not os.path.isabs(path):
             for base in (os.getcwd(), os.path.expanduser('~/atlas_ws/src/atlasautoware')):
                 if os.path.isfile(os.path.join(base, path)): path = os.path.join(base, path); break
+        # Four threads measured 1.6 ms per frame on the Orin Nano against 2.5 ms on two.
+        # The GPU is not worth it here: a TensorRT engine would save under a millisecond
+        # of a 100 ms control period, and the Orin's CUDA userspace is not installed.
         so = ort.SessionOptions(); so.intra_op_num_threads = int(self.p['threads'])
+        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         self.sess = ort.InferenceSession(path, so, providers=['CPUExecutionProvider'])
+        # The output order comes from the model (metadata written by ml/train_policy.py; older
+        # exports are (speed, steer)). Unpacking it as (steer, speed) was the 9/23 bug.
+        self.order = action_order_of(self.sess)
+        cfg = model_config(self.sess)
+        self.model_lidar_x, self.model_cam_x = sensor_geom(cfg)
+        self.bev_dx = float(self.p['lidar_x']) - self.model_lidar_x          # 0.27 for models from before 10/5
+        self.needs_cam = 'camera' in str(cfg.get('inputs', 'camera,lidar')).split(',')
+        if self.p['speed_map'] not in ('inverse', 'raw'):
+            raise ValueError(f"speed_map must be 'inverse' or 'raw', not {self.p['speed_map']!r}")
+        self.erpm = {'max_speed': float(self.p['erpm_max_speed']), 'min_erpm': float(self.p['erpm_min']),
+                     'max_erpm': float(self.p['erpm_max']), 'deadband': float(self.p['erpm_deadband']),
+                     'erpm_gain': float(self.p['erpm_gain'])}
         self.ids = np.asarray([text_ids(self.p['instruction'])], np.int64)
         self.front = None; self.scan = None; self.state = np.zeros(5, np.float32)
         self.t_img = self.t_scan = 0.0; self.front_clear = 99.0; self.n = 0; self.t0 = time.time()
@@ -71,57 +108,119 @@ class PolicyBridge(Node):
         self.create_subscription(Odometry, self.p['odom_topic'], self._odom, 10)
         self.create_subscription(Imu, self.p['imu_topic'], self._imu, 20)
         self.create_subscription(String, '/policy/instruction', self._instr, 5)
+        # route hint (state[2:4]) for models trained with it; see the module docstring
+        self.use_hint = model_uses_hint(self.sess)
+        self.route = RouteSource(goal_tol=float(self.p['goal_tol'])); self.pose = None; self.t_pose = 0.0
+        if self.use_hint:
+            self.route.set_goal(parse_goal(self.p['goal']))
+            self.create_subscription(Odometry, self.p['pose_topic'], self._pose, 20)
+            latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                                 reliability=ReliabilityPolicy.RELIABLE)       # slam_toolbox /map
+            self.create_subscription(OccupancyGrid, self.p['map_topic'], self._map, latched)
+            self.create_subscription(PoseStamped, '/goal_pose', self._goal_pose, 5)
+            self.create_subscription(String, '/policy/goal', self._goal_str, 5)
+            threading.Thread(target=self._replan_loop, daemon=True).start()
         self.drive_pub = self.create_publisher(AckermannDriveStamped, self.p['drive_topic'], 10)
         self.st_pub = self.create_publisher(String, '/policy/status', 5)
         self.create_timer(1.0 / float(self.p['rate']), self._tick)
         self.get_logger().info(f"policy_bridge: {path} | instruction: {self.p['instruction']!r} | "
-                               f"max_speed {self.p['max_speed']} m/s")
+                               f"max_speed {self.p['max_speed']} m/s | route hint "
+                               f"{'ON, goal ' + str(self.route.goal) if self.use_hint else 'off (model not trained with it)'} | "
+                               f"lidar trained at {self.model_lidar_x:.2f} m, car {float(self.p['lidar_x']):.2f} m "
+                               f"(scan shift {self.bev_dx:+.2f} m) | camera trained at {self.model_cam_x:.2f} m | "
+                               f"speed map {self.p['speed_map']}" + ('' if self.needs_cam else ' | lidar-only model'))
 
     def _img(self, m):
         if m.encoding not in ('rgb8', 'bgr8'): return
         a = np.frombuffer(m.data, np.uint8).reshape(m.height, m.width, 3)
         if m.encoding == 'rgb8': a = a[:, :, ::-1]                   # training frames were BGR (cv2)
-        self.front = cv2.resize(a, (FRONT_HW[1], FRONT_HW[0]), interpolation=cv2.INTER_AREA); self.t_img = time.time()
+        self.front = front_image(a); self.t_img = time.time()
 
     def _scan(self, m):
         self.scan = (m.ranges, m.angle_min, m.angle_increment); self.t_scan = time.time()
-        n = len(m.ranges); c = n // 2 if m.angle_min < -1.0 else 0; w = max(1, int(0.2 / max(m.angle_increment, 1e-6)))
-        seg = np.asarray(m.ranges[max(0, c - w):c + w], np.float32); seg = seg[np.isfinite(seg) & (seg > 0.05)]
-        self.front_clear = float(seg.min()) if seg.size else 99.0
+        self.front_clear = front_clear(m.ranges, m.angle_min, m.angle_increment)
 
     def _odom(self, m): self.state[0] = m.twist.twist.linear.x; self.state[1] = m.twist.twist.angular.z
-    def _imu(self, m): self.state[2:5] = (m.angular_velocity.x, m.angular_velocity.y, m.angular_velocity.z)
+    def _imu(self, m):
+        if self.use_hint: self.state[4] = m.angular_velocity.z                  # [2:4] is the route hint
+        else: self.state[2:5] = (m.angular_velocity.x, m.angular_velocity.y, m.angular_velocity.z)
+
+    def _pose(self, m):
+        q = m.pose.pose.orientation
+        yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        self.pose = (m.pose.pose.position.x, m.pose.pose.position.y, yaw); self.t_pose = time.time()
+
+    def _map(self, m):
+        i = m.info
+        self.route.set_map(occ_from_grid(m.data, i.width, i.height), i.resolution,
+                           (i.origin.position.x, i.origin.position.y))
+
+    def _set_goal(self, g, src):
+        self.route.set_goal(g); self.get_logger().info(f'goal ({src}): {g}')
+
+    def _goal_pose(self, m): self._set_goal((m.pose.position.x, m.pose.position.y), '/goal_pose')
+    def _goal_str(self, m): self._set_goal(parse_goal(m.data), '/policy/goal')
+
+    def _fresh_pose(self):
+        return self.pose if time.time() - self.t_pose < self.p['pose_stale'] else None
+
+    def _replan_loop(self):
+        # A* can take tens of ms on a big SLAM map; keep it off the control timer
+        while rclpy.ok():
+            try: self.route.replan(self._fresh_pose(), time.time())
+            except Exception as e: self.get_logger().warn(f'replan: {e}', throttle_duration_sec=5.0)
+            time.sleep(max(0.1, float(self.p['replan'])))
     def _instr(self, m):
         self.p['instruction'] = m.data; self.ids = np.asarray([text_ids(m.data)], np.int64)
         self.get_logger().info(f'instruction: {m.data!r}')
 
     def _tick(self):
         now = time.time(); cmd = AckermannDriveStamped(); st = {'instruction': self.p['instruction']}
-        fresh = self.front is not None and self.scan is not None and now - self.t_img < self.p['stale'] and now - self.t_scan < self.p['stale']
-        if fresh:
-            bev = bev_image(*self.scan)
+        cam_ok = (self.front is not None and now - self.t_img < self.p['stale']) or not self.needs_cam
+        fresh = cam_ok and self.scan is not None and now - self.t_scan < self.p['stale']
+        hold = False
+        if fresh and self.use_hint:
+            h, rst = self.route.hint(self._fresh_pose(), now); st.update(rst)
+            if h is None: hold = True                                # no route / arrived: don't drive
+            else: self.state[2:4] = h; st['hint'] = [round(h[0], 2), round(h[1], 2)]
+        if fresh and not hold:
+            bev = bev_image(*self.scan, dx=self.bev_dx)
+            front = self.front if self.front is not None else np.zeros((*FRONT_HW, 3), np.uint8)   # lidar-only: unused
             # channel order matches training: frames were cached from cv2 (BGR), fed unflipped
-            feed = {'front': (self.front.transpose(2, 0, 1)[None] / 255.0).astype(np.float32),
-                    'bev': (bev[None, None] / 255.0).astype(np.float32),
-                    'state': self.state[None].astype(np.float32), 'ids': self.ids}
-            steer, speed = [float(v) for v in self.sess.run(['action'], feed)[0][0]]
+            speed, steer = split_action(self.sess.run(['action'], make_feed(front, bev, self.state, self.ids))[0][0],
+                                        self.order)
+            # before the clamp: min()/max() silently turn a NaN into a limit (full lock)
+            if not (math.isfinite(speed) and math.isfinite(steer)): speed, steer = 0.0, 0.0; st['nan'] = True
             steer = max(-self.p['max_steer'], min(self.p['max_steer'], steer))
             speed = max(0.0, min(self.p['max_speed'], speed))
             if self.front_clear < self.p['aeb_dist']: speed = 0.0; st['aeb'] = True
-            cmd.drive.speed = speed; cmd.drive.steering_angle = steer
-            st.update({'steer': round(steer, 3), 'speed': round(speed, 2), 'front': round(self.front_clear, 2)})
+            # erpm mode: send what makes the wheels roll at `speed` (see the module docstring)
+            drive = erpm_command(speed, float(self.p['coast_below']), self.erpm) if self.p['speed_map'] == 'inverse' else speed
+            cmd.drive.speed = float(drive); cmd.drive.steering_angle = steer
+            st.update({'steer': round(steer, 3), 'speed': round(speed, 2), 'drive': round(drive, 3),
+                       'front': round(self.front_clear, 2)})
             self.n += 1
-        else:
-            st['waiting'] = {'image': now - self.t_img > self.p['stale'], 'scan': now - self.t_scan > self.p['stale']}
+        elif not fresh:
+            st['waiting'] = {'image': not cam_ok, 'scan': now - self.t_scan > self.p['stale']}
         self.drive_pub.publish(cmd)
         st['hz'] = round(self.n / max(1e-6, now - self.t0), 1)
         self.st_pub.publish(String(data=json.dumps(st)))
 
 
 def main(args=None):
+    try:
+        from rclpy.executors import ExternalShutdownException
+    except ImportError:
+        ExternalShutdownException = KeyboardInterrupt
     rclpy.init(args=args); n = PolicyBridge()
     try: rclpy.spin(n)
-    except KeyboardInterrupt: pass
+    except (KeyboardInterrupt, ExternalShutdownException): pass
+    finally:
+        # leave the actuator an explicit zero instead of the last policy command; drive_node's
+        # own timeout is the backstop, this just makes a stop immediate
+        try:
+            if rclpy.ok(): n.drive_pub.publish(AckermannDriveStamped())
+        except Exception: pass
     try: n.destroy_node(); rclpy.shutdown()
     except Exception: pass
 

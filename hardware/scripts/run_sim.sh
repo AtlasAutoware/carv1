@@ -8,7 +8,7 @@
 # Then open http://<this-host>:8080/ . Isolated on ROS_DOMAIN_ID=7 so it never collides
 # with a real car on the network.
 export ROS_DOMAIN_ID="${SIM_DOMAIN:-7}"
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source "$HOME/f1tenth_ws/install/setup.bash" 2>/dev/null
 source "$HOME/atlas_ws/install/setup.bash"
 MAP="${1:-$HOME/atlas_ws/src/atlasautoware/maps/levine.yaml}"

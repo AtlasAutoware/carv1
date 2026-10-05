@@ -26,10 +26,10 @@ $SSH "cp ~/atlas_ws/src/atlasautoware/hardware/scripts/{run_remote,restart_remot
 echo "== f1tenth_stack overrides (joy profile, vesc.yaml, bringup) =="
 $SSH "cp ~/atlas_ws/src/atlasautoware/hardware/f1tenth_stack/config/*.yaml ~/f1tenth_ws/src/f1tenth_system/f1tenth_stack/config/ && \
       cp ~/atlas_ws/src/atlasautoware/hardware/f1tenth_stack/launch/bringup_launch.py ~/f1tenth_ws/src/f1tenth_system/f1tenth_stack/launch/ && \
-      cd ~/f1tenth_ws && source /opt/ros/humble/setup.bash && colcon build --packages-select f1tenth_stack 2>&1 | grep -E 'Finished|failed'"
+      cd ~/f1tenth_ws && source /opt/ros/jazzy/setup.bash && colcon build --packages-select f1tenth_stack 2>&1 | grep -E 'Finished|failed'"
 
 echo "== atlasautoware package =="
-$SSH "cd ~/atlas_ws && source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-select f1tenth_gym_ros 2>&1 | grep -E 'Finished|failed'"
+$SSH "cd ~/atlas_ws && source /opt/ros/jazzy/setup.bash && colcon build --symlink-install --packages-select f1tenth_gym_ros 2>&1 | grep -E 'Finished|failed'"
 
 echo "== python deps the web UI needs for track pictures =="
 $SSH "python3 -c 'import numpy, scipy, PIL' 2>/dev/null && echo '  numpy/scipy/PIL present' || \

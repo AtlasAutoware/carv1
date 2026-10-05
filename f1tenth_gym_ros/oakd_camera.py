@@ -8,6 +8,9 @@ works on Humble — no depthai-ros packages needed on the Jetson):
   /oakd/rgb          sensor_msgs/Image  (bgr8)   -> camera_perception YOLO
   /oakd/camera_info  sensor_msgs/CameraInfo      -> pinhole back-projection
   /oakd/imu          sensor_msgs/Imu (accel+gyro)-> raceline_mpc traction governor
+  /oakd/video        sensor_msgs/CompressedImage (format "h264" or "h265", one Annex-B
+                     access unit per message) when video_kbps > 0 -> web_pilot's /vstream. Encoded
+                     on the camera's own chip, so the Jetson only forwards bytes.
   /oakd/opponents_rel PoseArray (optional)       -> on-device VPU YOLO: set
                      `yolo_blob` to a compiled .blob and detection runs on the
                      camera's Myriad X — zero host CPU/GPU cost, boxes
@@ -30,6 +33,8 @@ Run:
     ros2 run f1tenth_gym_ros oakd_camera --ros-args --params-file config/hardware.yaml
 """
 
+import time
+
 try:
     import depthai as dai
 except Exception:                       # pragma: no cover — not on dev machines
@@ -37,9 +42,11 @@ except Exception:                       # pragma: no cover — not on dev machin
 
 
 def build_pipeline(width, height, fps, imu_hz, yolo_blob='', yolo_conf=0.4,
-                   yolo_size=416):
+                   yolo_size=416, video_kbps=0, video_keyframe=15,
+                   video_codec='h264'):
     """depthai pipeline: RGB preview (interleaved BGR) + raw accel/gyro IMU,
-    plus optional on-device YOLO on the Myriad X VPU when `yolo_blob` set."""
+    plus optional on-device YOLO on the Myriad X VPU when `yolo_blob` set,
+    plus optional on-device H.264/H.265 for the pilot page when `video_kbps` > 0."""
     pipeline = dai.Pipeline()
 
     cam = pipeline.create(dai.node.ColorCamera)
@@ -52,6 +59,37 @@ def build_pipeline(width, height, fps, imu_hz, yolo_blob='', yolo_conf=0.4,
     xout_rgb = pipeline.create(dai.node.XLinkOut)
     xout_rgb.setStreamName('rgb')
     cam.preview.link(xout_rgb.input)
+
+    if video_kbps:
+        # H.264 (or H.265) for the pilot page, encoded by the camera's own video encoder. Baseline
+        # profile (no B-frames, so nothing waits for a future frame), constant bitrate so
+        # the stream fits the radio link, and a keyframe every `video_keyframe` frames so a
+        # lost or skipped frame heals within half a second at 30 fps.
+        w, h = int(width), int(height)
+        k = 1920 // w
+        if 1920 % w == 0 and 1080 % h == 0 and 1080 // h == k:
+            cam.setIspScale(1, k)            # 1080p / 3 = 640x360: same picture as the preview
+            cam.setVideoSize(w, h)
+            enc_in = cam.video
+        else:                                # other sizes: resize the video stream on the camera
+            manip_v = pipeline.create(dai.node.ImageManip)
+            manip_v.initialConfig.setResize(w, h)
+            manip_v.initialConfig.setFrameType(dai.ImgFrame.Type.NV12)
+            manip_v.setMaxOutputFrameSize(w * h * 3 // 2)
+            cam.video.link(manip_v.inputImage)
+            enc_in = manip_v.out
+        enc = pipeline.create(dai.node.VideoEncoder)
+        prof = (dai.VideoEncoderProperties.Profile.H265_MAIN if video_codec == 'h265'
+                else dai.VideoEncoderProperties.Profile.H264_BASELINE)
+        enc.setDefaultProfilePreset(float(fps), prof)
+        enc.setRateControlMode(dai.VideoEncoderProperties.RateControlMode.CBR)
+        enc.setBitrateKbps(int(video_kbps))
+        enc.setKeyframeFrequency(int(video_keyframe))
+        enc.setNumBFrames(0)
+        enc_in.link(enc.input)
+        xout_video = pipeline.create(dai.node.XLinkOut)
+        xout_video.setStreamName('video')
+        enc.bitstream.link(xout_video.input)
 
     if yolo_blob:
         # NN wants planar input at its own size: convert on-device, then run
@@ -89,7 +127,7 @@ def _make_node():
     import rclpy
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy
-    from sensor_msgs.msg import Image, CameraInfo, Imu
+    from sensor_msgs.msg import Image, CameraInfo, Imu, CompressedImage
     from geometry_msgs.msg import PoseArray, Pose
 
     class OakDCamera(Node):
@@ -108,6 +146,10 @@ def _make_node():
             self.declare_parameter('yolo_conf', 0.4)
             self.declare_parameter('yolo_size', 416)
             self.declare_parameter('car_width', 0.30)  # m, for back-projection
+            self.declare_parameter('video_kbps', 0)     # >0: on-camera video for the pilot page
+            self.declare_parameter('video_codec', 'h264')  # h264 or h265 (the encoder has no AV1)
+            self.declare_parameter('video_keyframe', 15)
+            self.declare_parameter('video_topic', '/oakd/video')
             p = lambda n: self.get_parameter(n).value   # noqa: E731
             self.w, self.h = int(p('width')), int(p('height'))
             self.cam_frame = p('camera_frame')
@@ -123,11 +165,29 @@ def _make_node():
             self.pub_imu = self.create_publisher(Imu, p('imu_topic'),
                                                  QoSProfile(depth=50))
 
+            self.video_kbps = int(p('video_kbps'))
+            self.codec = 'h265' if str(p('video_codec')).lower() in ('h265', 'hevc') else 'h264'
             self.device = dai.Device(build_pipeline(
                 self.w, self.h, p('fps'), p('imu_hz'),
                 yolo_blob=p('yolo_blob'), yolo_conf=float(p('yolo_conf')),
-                yolo_size=int(p('yolo_size'))))
+                yolo_size=int(p('yolo_size')), video_kbps=self.video_kbps,
+                video_keyframe=int(p('video_keyframe')), video_codec=self.codec))
             self.q_rgb = self.device.getOutputQueue('rgb', maxSize=2, blocking=False)
+            # capture-to-host latency and video bitrate, logged every 10 s
+            self.stats = {'rgb_lat': [], 'h264_lat': [], 'h264_bytes': 0, 'h264_n': 0,
+                          'h264_keys': 0, 't0': time.monotonic()}
+            self.q_h264 = None
+            if self.video_kbps:
+                self.q_h264 = self.device.getOutputQueue('video', maxSize=30, blocking=False)
+                # reliable and deep: a dropped delta frame breaks decoding until the next keyframe
+                self.pub_h264 = self.create_publisher(
+                    CompressedImage, p('video_topic'),
+                    QoSProfile(depth=30, reliability=ReliabilityPolicy.RELIABLE))
+                self.create_timer(1.0 / (2.0 * float(p('fps'))), self._poll_h264)
+                self.get_logger().info(
+                    f"on-camera {self.codec.upper()} {self.video_kbps} kbit/s, keyframe every "
+                    f"{int(p('video_keyframe'))} frames -> {p('video_topic')}")
+            self.create_timer(10.0, self._log_stats)
             self.q_imu = self.device.getOutputQueue('imu', maxSize=50, blocking=False)
             self.info = self._camera_info()
             self.q_det = None
@@ -164,10 +224,52 @@ def _make_node():
                 self.get_logger().warning(f'no factory calibration: {e}')
             return info
 
+        def _age_ms(self, frame):
+            """Capture-to-now in ms: depthai timestamps run on the host's steady clock."""
+            try:
+                return (dai.Clock.now() - frame.getTimestamp()).total_seconds() * 1000.0
+            except Exception:
+                return None
+
+        def _poll_h264(self):
+            for pkt in self.q_h264.tryGetAll():
+                data = pkt.getData().tobytes()
+                lat = self._age_ms(pkt)
+                if lat is not None:
+                    self.stats['h264_lat'].append(lat)
+                self.stats['h264_bytes'] += len(data)
+                self.stats['h264_n'] += 1
+                msg = CompressedImage()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = self.cam_frame
+                msg.format = self.codec
+                msg.data = data
+                self.pub_h264.publish(msg)
+
+        def _log_stats(self):
+            s, now = self.stats, time.monotonic()
+            dt = max(1e-3, now - s['t0'])
+
+            def p50_p95(v):
+                v = sorted(v)
+                return (v[len(v) // 2], v[int(len(v) * 0.95)]) if v else (float('nan'),) * 2
+            r50, r95 = p50_p95(s['rgb_lat'])
+            line = f'capture->host: rgb p50 {r50:.1f} ms p95 {r95:.1f} ms'
+            if self.q_h264 is not None:
+                h50, h95 = p50_p95(s['h264_lat'])
+                line += (f' | {self.codec} p50 {h50:.1f} ms p95 {h95:.1f} ms, '
+                         f"{s['h264_bytes'] * 8 / dt / 1000:.0f} kbit/s, {s['h264_n'] / dt:.1f} fps")
+            self.get_logger().info(line)
+            self.stats = {'rgb_lat': [], 'h264_lat': [], 'h264_bytes': 0, 'h264_n': 0,
+                          'h264_keys': 0, 't0': now}
+
         def _poll_rgb(self):
             frame = self.q_rgb.tryGet()
             if frame is None:
                 return
+            lat = self._age_ms(frame)
+            if lat is not None:
+                self.stats['rgb_lat'].append(lat)
             stamp = self.get_clock().now().to_msg()
             msg = Image()
             msg.header.stamp = stamp

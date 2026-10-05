@@ -6,12 +6,17 @@
     # Castle 1415 is 4-pole like the Velineon, so unchanged by the motor swap.
     # Only used by vesc_to_odom (odometry) and control_mode 'speed' - NOT by 'erpm' mode.
     # Verify: drive a measured 5 m and compare /odom. Was 4614 (f1tenth reference car).
-    speed_to_erpm_gain: 3575.0
+    speed_to_erpm_gain: 4285.0
     speed_to_erpm_offset: 0.0
 
+    # 2026-10-05 auto_calibrate (tools/auto_calibrate.py, hallway, lidar-checked):
+    #   straight ahead = servo 0.6705 (was 0.5923: the car steered 3.9 deg left);
+    #   gain -0.9175 (was -1.2135): re-measured at 11:39 with the corrected speed scale, fit residual 0.4 deg;
+    #   speed_to_erpm_gain 4285: eRPM said 5.20 m where the lidar measured 4.34 m;
+    #   odometry sign measured: forward travel needs a POSITIVE gain under vesc_to_odom.
     # servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset
-    steering_angle_to_servo_gain: -1.2135
-    steering_angle_to_servo_offset: 0.5923
+    steering_angle_to_servo_gain: -0.9175
+    steering_angle_to_servo_offset: 0.6705
 
     # --- motor command mode (ackermann_to_vesc) ---
     # "erpm"    : closed-loop SPEED with a floor (min_erpm..max_erpm). Any throttle spins the
@@ -47,7 +52,9 @@
     position_min: 0.0
     position_max: 0.0
     servo_min: 0.15
-    servo_max: 0.90   # was 0.85; center offset 0.5304 sits right of mid, so right throw
+    servo_max: 0.90   # 2026-10-05: centre is now 0.6705, so right lock is only ~0.25 rad vs ~0.56 left
+                      # (re-centre the servo horn a spline tooth to even it out). Older note: was 0.85;
+                      # center offset 0.5304 sat right of mid, so right throw
                       # clipped early (0.26 rad vs 0.31 left). 0.90 -> ~0.30 rad, symmetric.
                       # Raise toward 0.91 for exact symmetry; lower if the servo binds at full right.
 
@@ -57,6 +64,20 @@
 
 vesc_to_odom_node:
   ros__parameters:
+    # Odometry speed sign. vesc_to_odom converts (erpm - offset) / gain, and the driver
+    # pinned here (vesc 5b2bd1b, via f1tenth_system foxy-devel) negates the raw erpm first.
+    # Upstream commit 1bc8251 on the humble branch removes that negation, so the same
+    # hardware reports the opposite sign after the JetPack 7 / Jazzy rebuild. Overriding the
+    # gain here and not in the shared block keeps the fix on odometry only: ackermann_to_vesc
+    # keeps the positive gain, so motor commands are untouched either way.
+    #   vesc <= 5b2bd1b (driver negates):   3575.0
+    #   vesc >= 1bc8251 (driver does not): -3575.0
+    # Confirm with tools/check_odom_sign.py, which reads back-driven erpm while you push the
+    # car forward by hand. Forward travel must give a positive /odom twist.linear.x.
+    # MEASURED 2026-10-05 with tools/auto_calibrate.py (forward travel confirmed by the lidar):
+    # with -3575 the car reported -0.80 m/s while rolling forward, so the driver built here does
+    # not negate and the gain is positive. Magnitude 4285 from the same run (lidar distance).
+    speed_to_erpm_gain: 4285.0
     odom_frame: odom
     base_frame: base_link
     # publish odom to base link tf

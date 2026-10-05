@@ -455,6 +455,7 @@ def relative_to_world(x_fwd, y_left, ego):
 def _make_node():
     import rclpy
     from rclpy.node import Node
+    from rclpy.qos import qos_profile_sensor_data
     from sensor_msgs.msg import Image
     from nav_msgs.msg import Odometry
     from visualization_msgs.msg import Marker, MarkerArray
@@ -508,7 +509,9 @@ def _make_node():
             self.ego = (0.0, 0.0, 0.0)
             odom_topic = self.get_parameter('odom_topic').value
             self.create_subscription(Odometry, odom_topic, self._odom, 10)
-            self.create_subscription(Image, topic, self._image, 5)
+            # Sensor-data QoS (best effort): the OAK-D and Orbbec drivers publish best-effort, and a
+            # reliable subscription is incompatible with that, so it silently received nothing.
+            self.create_subscription(Image, topic, self._image, qos_profile_sensor_data)
             self.opp_pub = self.create_publisher(MarkerArray, '/camera_opponents', 5)
             self.pose_pub = self.create_publisher(PoseArray, '/camera_opponents_poses', 5)
             self.Marker, self.MarkerArray = Marker, MarkerArray

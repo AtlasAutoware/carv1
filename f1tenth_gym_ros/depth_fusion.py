@@ -21,8 +21,32 @@ mount height and pitch parameters need to be right (an error of a few degrees in
 pitch makes the floor 'rise' into the band at range). `floor_margin` widens z_min at
 range to absorb that.
 """
-import math, time
+import array, math, time
 import numpy as np
+
+_RAYS = {}
+
+
+def _ray_table(H, W, stride, fx, fy, cx, cy, pitch):
+    """Per-pixel body-frame direction, so the point cloud is three multiplies by Z.
+
+    fwd, up and left are each linear in Z with a coefficient that depends only on the
+    pixel, the intrinsics and the mount pitch — none of which change between frames.
+    Building the pixel grid and dividing by fx/fy every frame was ~1.4 ms of the 5.5.
+    """
+    key = (H, W, stride, fx, fy, cx, cy, pitch)
+    t = _RAYS.get(key)
+    if t is None:
+        if len(_RAYS) > 4:                     # a jittering camera_info must not leak
+            _RAYS.clear()
+        v, u = np.mgrid[0:H:stride, 0:W:stride]
+        nx = (u - cx) / fx                     # right, per unit Z
+        ny = (v - cy) / fy                     # down, per unit Z
+        c, s = math.cos(pitch), math.sin(pitch)
+        t = _RAYS[key] = ((c - s * ny).astype(np.float32),      # fwd
+                          (-s - c * ny).astype(np.float32),     # up
+                          (-nx).astype(np.float32))             # left
+    return t
 
 
 def depth_to_scan(depth_m, fx, fy, cx, cy, n_bins, angle_min, angle_inc, cam_x=0.30,
@@ -33,39 +57,47 @@ def depth_to_scan(depth_m, fx, fy, cx, cy, n_bins, angle_min, angle_inc, cam_x=0
     ranges is +inf where the camera saw nothing in the band for that bearing.
     """
     H, W = depth_m.shape
-    d = depth_m[::stride, ::stride]
-    v, u = np.mgrid[0:H:stride, 0:W:stride]
-    ok = np.isfinite(d) & (d > 0.05) & (d < r_max * 1.5)
-    if not ok.any():
-        return np.full(n_bins, np.inf, np.float32), 0
-    Z = d[ok].astype(np.float32); U = u[ok].astype(np.float32); V = v[ok].astype(np.float32)
-    X = (U - cx) * Z / fx                     # right
-    Y = (V - cy) * Z / fy                     # down
-    fwd, left, up = Z, -X, -Y                 # optical -> body axes (camera frame)
-    if pitch:                                  # positive pitch = camera looking down
-        c, s = math.cos(pitch), math.sin(pitch)
-        fwd, up = c * fwd + s * up, -s * fwd + c * up
-    fwd = fwd + cam_x; up = up + cam_z        # into base_link
-    rng = np.hypot(fwd, left)
-    band = (up > z_min + floor_margin * rng) & (up < z_max) & (rng > r_min) & (rng < r_max)
-    if not band.any():
-        return np.full(n_bins, np.inf, np.float32), 0
-    ang = np.arctan2(left[band], fwd[band]); rng = rng[band]
+    kf, ku, kl = _ray_table(H, W, stride, float(fx), float(fy), float(cx), float(cy),
+                            float(pitch))
+    out = np.full(n_bins, np.inf, np.float32)
+    Z = np.ascontiguousarray(depth_m[::stride, ::stride], np.float32)
+    # Project the whole strided grid densely and gather once at the end: only ~10% of
+    # pixels survive the height band, but ~92% survive the validity test, so masking
+    # first bought nothing and cost three fancy-index copies.
+    fwd = Z * kf; fwd += cam_x
+    up = Z * ku; up += cam_z
+    left = Z * kl
+    rng = fwd * fwd; rng += left * left; np.sqrt(rng, out=rng)
+    # NaN fails `> 0.05`, so an explicit isfinite pass is redundant
+    m = Z > 0.05; m &= Z < r_max * 1.5
+    m &= up < z_max; m &= rng > r_min; m &= rng < r_max
+    m &= up > z_min + floor_margin * rng
+    if not m.any():
+        return out, 0
+    ang = np.arctan2(left[m], fwd[m]); rng = rng[m]
     b = np.floor((ang - angle_min) / angle_inc).astype(np.int64)
     inb = (b >= 0) & (b < n_bins)
-    out = np.full(n_bins, np.inf, np.float32)
     np.minimum.at(out, b[inb], rng[inb])
     return out, int(inb.sum())
 
 
+def _f32_array(a):
+    """float32 ndarray -> array.array('f') by memcpy.
+
+    LaserScan.ranges only takes a fast path for array.array('f'); anything else is
+    validated element by element in a python loop (3 ms per scan for 1080 beams).
+    """
+    b = array.array('f')
+    b.frombytes(np.ascontiguousarray(a, np.float32).tobytes())
+    return b
+
+
 def fuse(lidar, depth_scan, min_hits=1):
     """Per-bearing minimum. lidar 0/inf/nan = no return; depth inf = no return."""
-    L = np.asarray(lidar, np.float32).copy()
-    Lbad = ~np.isfinite(L) | (L <= 0.0)
+    out = np.array(lidar, np.float32)          # already a private copy; no second one
+    Lbad = ~np.isfinite(out) | (out <= 0.0)
     D = np.asarray(depth_scan, np.float32)
-    Dok = np.isfinite(D)
-    out = L.copy()
-    take = Dok & (Lbad | (D < L))
+    take = np.isfinite(D) & (Lbad | (D < out))
     out[take] = D[take]
     return out, take
 
@@ -118,7 +150,7 @@ def main(args=None):
                 setattr(fused, k, getattr(s, k))
             fused.intensities = []
             if self.K is None or self.depth is None or time.time() - self.depth_t > self.p['max_age']:
-                fused.ranges = list(s.ranges); self.pub_f.publish(fused); return
+                fused.ranges = s.ranges; self.pub_f.publish(fused); return
             fx, fy, cx, cy = self.K
             dscan, npts = depth_to_scan(self.depth, fx, fy, cx, cy, n, s.angle_min, s.angle_increment,
                                         self.p['cam_x'], self.p['cam_z'], math.radians(self.p['pitch_deg']),
@@ -126,11 +158,13 @@ def main(args=None):
                                         int(self.p['stride']), self.p['floor_margin'])
             out, take = fuse(np.asarray(s.ranges, np.float32), dscan)
             self.n_take += int(take.sum())
-            fused.ranges = [float(x) for x in out]; self.pub_f.publish(fused)
+            fused.ranges = _f32_array(out); self.pub_f.publish(fused)
+            if not self.pub_d.get_subscription_count():
+                return                        # /scan_depth is debug only; nobody is looking
             d = LaserScan(); d.header = s.header
             for k in ('angle_min', 'angle_max', 'angle_increment', 'range_min', 'range_max'):
                 setattr(d, k, getattr(s, k))
-            d.ranges = [float(x) if np.isfinite(x) else 0.0 for x in dscan]
+            d.ranges = _f32_array(np.where(np.isfinite(dscan), dscan, 0.0))
             self.pub_d.publish(d)
 
         def _report(self):

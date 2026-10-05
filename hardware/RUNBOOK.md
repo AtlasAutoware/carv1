@@ -19,16 +19,17 @@ Quick health check (second shell):
 - Servo: Hitec D625MW.
 
 ## vesc.yaml (src/f1tenth_system/f1tenth_stack/config/vesc.yaml)
-- speed_to_erpm_gain = 3575 (was 4614, the reference-car value). Used by odometry and by
-  control_mode "speed"; NOT used by "erpm" mode. Verify: drive a measured 5 m, compare /odom.
+- speed_to_erpm_gain = 4285, measured 2026-10-05 against the lidar (3575 from the assumed
+  gearing read 20% long; a 12T pinion would explain it). Used by odometry and by control_mode
+  "speed"; NOT used by "erpm" mode. vesc_to_odom_node needs it POSITIVE (measured, T7).
 - control_mode "erpm": stick fraction mapped between min_erpm 3000 and max_erpm 10000
-  (about 0.8 to 2.8 m/s with this gearing). Written to avoid the sensorless stall/smoke.
+  (about 0.7 to 2.3 m/s with the measured scale). Written to avoid the sensorless stall/smoke.
   With hall sensors that stall zone is gone, so "speed" mode (true m/s closed loop, what
   autonomy nodes expect) is viable again - bench test on a stand before switching.
-- STILL TO CALIBRATE with the D625MW: steering_angle_to_servo_offset (straight-ahead value),
-  servo_min / servo_max (lock-to-lock), steering_angle_to_servo_gain. Current values are
-  reference-car defaults.
-- wheelbase (vesc_to_odom_node) is 0.25 by default: measure axle-to-axle on this chassis.
+- Steering calibrated 2026-10-05 with tools/auto_calibrate.py: offset 0.6705 (straight ahead),
+  gain -0.9175. With the centre at 0.6705, right lock is ~0.25 rad against ~0.56 left: re-centre
+  the servo horn a spline tooth to even it out, then re-run the calibration.
+- wheelbase (vesc_to_odom_node) is 0.324 (Traxxas Slash 4x4 spec).
 - static TF base_link->laser is x=0.27 z=0.11: measure the C1's real position.
 
 ## Config edits need a rebuild (install is a copy, not a symlink)
@@ -70,8 +71,9 @@ Quick health check (second shell):
   are publishing. Run `tegrastats` in another shell to observe GPU activity.
 
 ## Remote pilot mode (2026-09-02)
-- The car is its own hotspot: SSID AtlasCar (NetworkManager connection, autoconnect, 5 GHz ch 36), car = 10.42.0.1.
-  Internet on the Jetson instead: sudo nmcli con up iPhone ; back: sudo nmcli con up AtlasCar.
+- The car is its own hotspot: SSID AtlasCar (NetworkManager connection, autoconnect), car = 10.42.0.1.
+  Since 2026-10-05 it runs on the USB TP-Link T3U (2.4 GHz ch 6, WPA3); see "Car link on two T3Us" below.
+  Internet on the Jetson at the same time: the onboard card is free, carnet.sh client/home/tether.
 - On the car: ~/run_remote.sh (or ~/restart_remote.sh to bounce it). Then open http://10.42.0.1:8080/
   (http://192.168.55.1:8080/ over USB-C): FPV stream, W/S throttle, A/D steer, max-throttle slider,
   gamepad via the browser (hold LB), lidar plot. Release everything = neutral; 250 ms watchdog on the car.
@@ -80,7 +82,7 @@ Quick health check (second shell):
 
 ## Range, trim, robustness (2026-09-02, later)
 - Steering trim: Q/E on the web page (stored on the car in ~/.atlascar_trim.json); for autonomy apply the equivalent to vesc.yaml steering_angle_to_servo_offset (see docs/REMOTE.md).
-- Networks: hardware/scripts/carnet.sh  hotspot | hotspot24 | client <SSID> [pw] | tether | status.
+- Networks: hardware/scripts/carnet.sh  hotspot | hotspot5 | client <SSID> [pw] | home | tether | status.
 - Anywhere/cellular: install_tailscale.sh once, then http://atlascar:8080/ with video=low and PILOT_TIMEOUT=0.6 run_remote.sh lowbw.
 - vesc_driver/ackermann_to_vesc/joy respawn after a VESC USB blip (they used to die with std::system_error).
 
@@ -89,3 +91,39 @@ Quick health check (second shell):
 - Autonomy publishes /drive (mux priority 10); holding a key or LB (teleop, priority 100) always overrides.
 - joy_teleop_f310.yaml lost its deadman-less 'default' block: it streamed zero teleop that masked autonomy in the mux. web_pilot now publishes that brake-to-zero itself, and suppresses it while engaged.
 - Track picture -> map -> raceline in the same panel (see docs/REMOTE.md). Scale comes from the lane width you type in.
+
+## Car link on two TP-Link T3Us (2026-10-05)
+- Car: TP-Link Archer T3U (RTL8812BU) on a Jetson USB port hosts AtlasCar: 2.4 GHz ch 6, 20 MHz, WPA3-SAE with
+  PMF required, AES-CCMP, US rules. NVIDIA's kernel has no rtw88: hardware/scripts/install_t3u_driver.sh builds
+  lwfinger/rtw88 (rerun after a kernel update). The onboard card keeps a manual WPA2 fallback (AtlasCarOnboard,
+  5 GHz ch 149), used by `carnet.sh hotspot` when no T3U is plugged in.
+- Laptop: a second T3U. Its NetworkManager profile "AtlasCar" is bound to that adapter's MAC, never takes the
+  default route or DNS, and is locked to the car T3U's BSSID: the lock stops background scans, which stalled
+  the link for ~100 ms every few seconds. "AtlasCar-fallback" (any BSSID/band) covers the onboard fallback.
+- Both adapters stay in USB 2 mode (rtw88 switch_usb_mode=n): USB 3 radiates noise into 2.4 GHz.
+- Measured on the bench (adapters ~1 m apart): -32/-34 dBm, MCS 15 (144 Mbit/s PHY), iperf3 56 Mbit/s to the
+  car and 40 Mbit/s back, ping p50 1.6 ms / p99 16 ms over 1,400 pings, 0% loss. Range not measured yet.
+- Details and the reasoning: docs/REMOTE.md, "The T3U pair".
+- Pilot video (2026-10-05): the OAK-D encodes H.264 itself (VIDEO_KBPS=1000 by default in run_remote.sh);
+  the page decodes it with WebCodecs only on a secure page, so open it with tools/pilot_tunnel.sh
+  (http://localhost:8081/). Plain http://10.42.0.1:8080/ still works with MJPEG.
+- After a power cut the car's T3U once came back with constant USB errors (status -71) and no link;
+  re-seating it fixed it. Check `journalctl -k | grep -c "status: -71"` if the link does not return.
+
+## Calibration, unattended (2026-10-05)
+Put the car in a clear hallway pointing roughly along it, walk away, and run on the car:
+
+    ~/calib/calib_go.sh          # = tools/calib_go.sh next to tools/auto_calibrate.py
+
+It pauses web_pilot (the page streams neutral /teleop at ~17 Hz, and /teleop outranks /drive
+in ackermann_mux, so nothing on /drive moves the car while the page is open), lines the car up
+with the walls, drives about 6 m of arcs and straights at ~0.8 m/s, and resumes web_pilot. The
+report (~/calib/calib_<time>.txt) gives the servo offset and gain, the odometry sign and the
+eRPM-vs-lidar distance scale. It never edits vesc.yaml: apply the numbers, rebuild
+f1tenth_stack, ~/restart_remote.sh. `--dry` checks the sensors without moving.
+
+## Lidar orientation (2026-10-05)
+/scan was mirrored front to back until bringup_launch.py set `inverted: True` and
+`flip_x_axis: True` for rplidar_node. tools/lidar_live_check.py, run while someone drives,
+compares the lidar's own motion with the gyro and odometry (expect all agree).
+

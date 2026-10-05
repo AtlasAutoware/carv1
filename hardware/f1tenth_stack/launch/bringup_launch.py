@@ -151,7 +151,12 @@ def generate_launch_description():
                      'serial_port': '/dev/sensors/rplidar',
                      'serial_baudrate': 460800,
                      'frame_id': 'laser',
-                     'inverted': False,
+                     # 2026-10-05: with inverted False and no flip, /scan came out mirrored
+                     # front-to-back (a wall 2.3 m behind the car showed up ahead, side walls
+                     # stayed put). inverted reverses the scan direction, flip_x_axis turns it
+                     # 180 deg; together they map angle t to 180 - t, which undoes it.
+                     'inverted': True,
+                     'flip_x_axis': True,
                      'angle_compensate': True,
                      'scan_mode': 'Standard'}],
         output='screen'

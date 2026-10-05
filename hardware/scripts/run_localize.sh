@@ -4,7 +4,7 @@
 # Run this alongside remote mode. Then the pilot page's pose check goes green and you can
 # engage raceline mode with pose /pf/pose/odom. For an UNKNOWN space, build a map first:
 #   ros2 launch f1tenth_gym_ros slam_online.launch.py     (drive around, then map_saver_cli)
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source "$HOME/atlas_ws/install/setup.bash"
 MAP="${1:-$HOME/atlas_ws/src/atlasautoware/maps/my_track.yaml}"
 [ -f "$MAP" ] || MAP="$HOME/atlas_ws/src/atlasautoware/$1"

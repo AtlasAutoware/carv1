@@ -54,7 +54,7 @@ class ParticleFilterNode(Node):
             self.pf.init_pose(float(g('initial_x')), float(g('initial_y')), float(g('initial_theta')))
         self.base, self.odomf, self.mapf = g('base_frame'), g('odom_frame'), g('map_frame')
         self.last_odom = None; self.have_scan = False
-        self.scan = None
+        self.scan = None; self.scan_fresh = False
         self.create_subscription(Odometry, g('odom_topic'), self._odom, 20)
         self.create_subscription(LaserScan, g('scan_topic'), self._scan, qos_profile_sensor_data)
         self.create_subscription(PoseWithCovarianceStamped, '/initialpose', self._initpose, 5)
@@ -70,7 +70,7 @@ class ParticleFilterNode(Node):
         self.last_odom = (p.x, p.y, yaw_of(q))
 
     def _scan(self, m):
-        self.scan = m; self.have_scan = True
+        self.scan = m; self.have_scan = True; self.scan_fresh = True
 
     def _initpose(self, m):
         p, q = m.pose.pose.position, m.pose.pose.orientation
@@ -82,8 +82,12 @@ class ParticleFilterNode(Node):
             return
         if self.last_odom is not None:
             self.pf.predict(self.last_odom)         # no odom yet -> zero-motion, still localizes
-        m = self.scan
-        self.pf.update(m.ranges, m.angle_min, m.angle_increment, m.range_max or 16.0)
+        if self.scan_fresh:
+            # the timer runs faster than the lidar; reweighting on a scan already folded
+            # in costs a full sensor update and counts the same measurement twice
+            self.scan_fresh = False
+            m = self.scan
+            self.pf.update(m.ranges, m.angle_min, m.angle_increment, m.range_max or 16.0)
         x, y, th, spread = self.pf.estimate()
         now = self.get_clock().now().to_msg()
         od = Odometry(); od.header.stamp = now; od.header.frame_id = self.mapf; od.child_frame_id = self.base
@@ -115,6 +119,8 @@ class ParticleFilterNode(Node):
         self.tfb.sendTransform(t)
 
     def _publish_particles(self, stamp):
+        if not self.parts_pub.get_subscription_count():
+            return                                  # rviz-only; 200 Pose objects a tick
         pa = PoseArray(); pa.header.stamp = stamp; pa.header.frame_id = self.mapf
         P = self.pf.P
         step = max(1, len(P) // 200)

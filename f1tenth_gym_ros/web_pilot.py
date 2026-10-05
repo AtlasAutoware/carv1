@@ -11,14 +11,14 @@ seconds (0.25) a neutral Joy is published and the car stops. /joy feeds the unch
 F1TENTH chain: joy_teleop (F310 profile: button 4 = dead-man, axis 1 throttle, axis 3
 steer) -> ackermann_mux -> ackermann_to_vesc -> vesc_driver.
 """
-import json, os, socket, threading, time
+import collections, json, os, re, socket, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np, cv2
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import Image, Joy, LaserScan
+from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
+from sensor_msgs.msg import Image, Joy, LaserScan, CompressedImage
 from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 from std_msgs.msg import String
@@ -26,12 +26,35 @@ try:
     from f1tenth_gym_ros import pilot_autonomy as PA      # installed package (colcon)
 except ImportError:
     import pilot_autonomy as PA                           # run from the source directory
+try:
+    from f1tenth_gym_ros import h264_stream as HS         # on-camera video forwarding helpers
+except ImportError:
+    import h264_stream as HS
 
 N_AXES, N_BUTTONS = 6, 11
 TRIM_FILE = os.path.expanduser('~/.atlascar_trim.json')   # steering trim survives restarts
 S = {'jpg': None, 'jpg_t': 0.0, 'cmd': None, 'cmd_t': 0.0, 'src': '-', 'v': None, 'rx': 0, 'scan': None,
-     'trim': 0.0, 'video': {'width': 480, 'quality': 60, 'fps': 15.0},
+     'trim': 0.0, 'video': {'width': 480, 'quality': 60, 'fps': 15.0}, 'viewers': 0,
      'seen': {}, 'odom_topic': '/pf/pose/odom', 'rec': {}, 'rec_t': 0.0, 'lock': threading.Lock()}
+# On-camera H.264/H.265 (oakd_camera video_kbps > 0): a short ring of encoded frames that
+# /vstream clients read from, woken by `cond` on every new frame.
+S.update({'vbuf': collections.deque(maxlen=150), 'vseq': 0, 'vcodec': None, 'vt': 0.0,
+          'vrate': collections.deque(maxlen=90), 'vviewers': 0, 'caps': {}})
+S['cond'] = threading.Condition(S['lock'])
+VIDEO_MAX_LAG = 6               # frames (200 ms at 30 fps) behind before a viewer skips to a keyframe
+# Wi-Fi priority (WMM): cfg80211 maps the IP DSCP to an 802.11 user priority, so marking the
+# socket is enough. Video goes in the background queue (CS1 -> AC_BK); commands, status and
+# the lidar plot go in the voice queue (CS6 -> AC_VO), which wins the channel first.
+TOS_BACKGROUND, TOS_VOICE = 0x20, 0xC0
+
+
+def tos(sock, value):
+    try:
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_TOS, value)
+    except OSError:
+        pass
+
+
 SUP = PA.Supervisor()          # raceline_mpc process + its stop conditions
 JOB = PA.Job()                 # track conversion / raceline optimization
 NODE = [None]                  # the running WebPilot, for handlers that need ROS
@@ -57,7 +80,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>AtlasCar pilo
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
  body{margin:0;background:#0b0b0b;color:#ddd;font:14px system-ui,sans-serif;overflow:hidden}
- #v{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#000}
+ #v,#vc{position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain;background:#000}
  #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;background:rgba(0,0,0,.55);display:flex;gap:18px;align-items:center;flex-wrap:wrap}
  #arm{font-weight:700;padding:2px 10px;border-radius:6px;background:#552}
  #arm.on{background:#2a7}
@@ -83,7 +106,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>AtlasCar pilo
  #autobadge{position:fixed;left:50%;transform:translateX(-50%);top:44px;background:#2a7;color:#031;font-weight:700;padding:4px 14px;border-radius:6px;display:none}
 </style></head><body>
 <div id="autobadge">SELF-DRIVING &mdash; press Space or Esc to stop</div>
-<img id="v" src="/stream">
+<img id="v"><canvas id="vc" style="display:none"></canvas>
 <canvas id="lidar" width="260" height="260"></canvas><span id="lbl">lidar 6 m <label><input id="mirror" type="checkbox"> mirror</label></span>
 <div id="hud">
  <span id="arm">STOPPED</span>
@@ -92,6 +115,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>AtlasCar pilo
  <span>max <input id="max" type="range" min="0.1" max="1" step="0.05" value="0.4"> <span id="mv">40%</span></span>
  <span>trim <button id="tl">&lsaquo;</button> <span id="trim">0.00</span> <button id="tr">&rsaquo;</button></span>
  <span>video <select id="vq"><option value="normal">normal</option><option value="low">low (cellular)</option></select></span>
+ <span id="vcodec">video: -</span>
  <span id="pad">no gamepad</span>
  <span id="link">link: -</span>
  <span id="batt">batt: -</span>
@@ -118,6 +142,7 @@ overrides the policy (the mux gives teleop priority). Closing this tab stops the
 <section>
 <h3>Goal policy (distilled student)</h3>
 <label>goal <input id="pinstr" type="text" placeholder="turn left, then go straight to the end and stop" style="width:290px"></label>
+<label>goal x,y <input id="pgoal" type="text" placeholder="map m, e.g. 3.5,-1.2" style="width:120px"></label>
 <label>max speed <input id="pspd" type="range" min="0.2" max="1.5" step="0.1" value="0.6"> <span id="pspdv">0.6 m/s</span></label>
 <div style="margin-top:4px"><button id="pengage" style="background:#264;border-color:#4a7">ENGAGE POLICY</button>
   <span style="font-size:11px;color:#999">needs models/student.onnx on the car; same STOP / Space / override as raceline</span></div>
@@ -170,6 +195,55 @@ fetch('/trim').then(r=>r.json()).then(s=>showTrim(s.steer_trim)).catch(()=>{});
 // ── video quality: normal (480 px, q60, 15 fps) or low for cellular (320 px, q45, 10 fps) ──
 $('vq').onchange=()=>{const low=$('vq').value==='low';
   fetch('/video?w='+(low?320:480)+'&q='+(low?45:60)+'&fps='+(low?10:15),{method:'POST'}).catch(()=>{});};
+// ── video: on-camera H.264/H.265, decoded here with WebCodecs. MJPEG when that is not possible.
+// Frames on /vstream: u32 length | u8 flags (bit 0 = keyframe) | Annex-B access unit.
+const VCFG={h264:{codec:'avc1.42E01F',optimizeForLatency:true},h265:{codec:'hev1.1.6.L93.B0',optimizeForLatency:true}};
+let vmode='';
+function useMjpeg(why){ if(vmode==='mjpeg')return; vmode='mjpeg'; $('vc').style.display='none';
+  $('v').style.display=''; $('v').src='/stream'; $('vcodec').textContent='video: MJPEG'+(why?' ('+why+')':''); }
+async function decoders(){ const out={};
+  if(!('VideoDecoder' in window)) return out;
+  const want={h264:VCFG.h264.codec,h265:VCFG.h265.codec,av1:'av01.0.04M.08',vp9:'vp09.00.10.08'};
+  for(const k in want){ try{ out[k]=(await VideoDecoder.isConfigSupported({codec:want[k]})).supported===true; }catch(e){ out[k]=false; } }
+  fetch('/caps',{method:'POST',body:JSON.stringify(out)}).catch(()=>{}); return out; }
+async function startVideo(){
+  const caps=await decoders(); let st={};
+  try{ st=await (await fetch('/status')).json(); }catch(e){}
+  const codec=st.vcodec;
+  if(!codec) return useMjpeg('camera not encoding');
+  if(!caps[codec]) return useMjpeg('browser cannot decode '+codec.toUpperCase());
+  let r; try{ r=await fetch('/vstream',{cache:'no-store'}); }catch(e){ return useMjpeg('no stream'); }
+  if(!r.ok||!r.body) return useMjpeg('no stream');
+  vmode='h'; $('v').src=''; $('v').style.display='none';
+  const cv=$('vc'), cx=cv.getContext('2d'); cv.style.display='';
+  let nbytes=0, nframes=0, t0=performance.now(), ts=0, started=false, dead=false;
+  const dec=new VideoDecoder({output:f=>{ if(cv.width!==f.displayWidth){cv.width=f.displayWidth; cv.height=f.displayHeight;}
+      cx.drawImage(f,0,0); f.close(); nframes++; }, error:()=>{ dead=true; }});
+  dec.configure(VCFG[codec]);
+  const rd=r.body.getReader(); let buf=new Uint8Array(0);
+  while(!dead){
+    let x; try{ x=await rd.read(); }catch(e){ break; }
+    if(x.done) break;
+    const nb=new Uint8Array(buf.length+x.value.length); nb.set(buf); nb.set(x.value,buf.length); buf=nb; nbytes+=x.value.length;
+    let off=0;
+    while(buf.length-off>=5){
+      const len=((buf[off]<<24)|(buf[off+1]<<16)|(buf[off+2]<<8)|buf[off+3])>>>0;
+      if(buf.length-off<5+len) break;
+      const key=(buf[off+4]&1)===1, data=buf.slice(off+5,off+5+len); off+=5+len;
+      if(key) started=true;
+      if(!started) continue;
+      if(dec.decodeQueueSize>4 && !key){ started=false; continue; }   // decoder behind: wait for a keyframe
+      try{ dec.decode(new EncodedVideoChunk({type:key?'key':'delta',timestamp:(ts+=33333),data})); }catch(e){ dead=true; break; }
+    }
+    buf=buf.slice(off);
+    const now=performance.now();
+    if(now-t0>=1000){ $('vcodec').textContent='video: '+codec.toUpperCase()+' '+Math.round(nbytes*8/(now-t0))+' kbit/s, '+Math.round(nframes*1000/(now-t0))+' fps';
+      nbytes=0; nframes=0; t0=now; }
+  }
+  try{ rd.cancel(); }catch(e){} try{ dec.close(); }catch(e){}
+  vmode=''; $('vcodec').textContent='video: reconnecting'; setTimeout(startVideo,1000);
+}
+startVideo();
 function step(target,cur,rate){return cur+Math.max(-rate,Math.min(rate,target-cur));}
 function tick(){
   const dt=0.02, max=parseFloat($('max').value);
@@ -252,7 +326,7 @@ $('pspd').oninput=()=>{$('pspdv').textContent=$('pspd').value+' m/s';};
 $('pengage').onclick=()=>{
   const g=$('pinstr').value.trim(); if(!g){alert('type a goal instruction');return;}
   if(!confirm('Engage the goal policy?\nGoal: "'+g+'"\nThe car will move on its own. Space/Esc stops it; holding a key overrides it.'))return;
-  fetch('/auto/engage',{method:'POST',body:JSON.stringify({mode:'policy',instruction:g,max_speed:parseFloat($('pspd').value)})})
+  fetch('/auto/engage',{method:'POST',body:JSON.stringify({mode:'policy',instruction:g,goal:$('pgoal').value.trim(),max_speed:parseFloat($('pspd').value)})})
    .then(r=>r.json()).then(s=>{if(s.error){alert(s.error+(s.checks?'\n'+s.checks.filter(c=>!c.ok).map(c=>'- '+c.name+': '+c.detail).join('\n'):''));}else renderAuto(s);});
 };
 $('odom').onchange=()=>fetch('/auto/odom',{method:'POST',body:JSON.stringify({odom_topic:$('odom').value})}).then(r=>r.json()).then(renderAuto);
@@ -325,6 +399,9 @@ class H(BaseHTTPRequestHandler):
         b = json.dumps(obj).encode(); self.send_response(code)
         self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
+        tos(self.connection, TOS_VOICE)
+        if self.path == '/vstream':
+            self._vstream(); return
         if self.path == '/':
             b = PAGE.encode(); self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b); return
@@ -354,9 +431,11 @@ class H(BaseHTTPRequestHandler):
             self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b); return
         if self.path != '/stream':
             self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+        tos(self.connection, TOS_BACKGROUND)
         self.send_response(200); self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')
         self.send_header('Cache-Control', 'no-cache'); self.end_headers()
         last = 0.0
+        with S['lock']: S['viewers'] += 1          # _img encodes only while this is nonzero
         try:
             while True:
                 with S['lock']: jpg, t = S['jpg'], S['jpg_t']
@@ -364,8 +443,48 @@ class H(BaseHTTPRequestHandler):
                 last = t
                 self.wfile.write(b'--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ' + str(len(jpg)).encode() + b'\r\n\r\n' + jpg + b'\r\n')
         except (BrokenPipeError, ConnectionResetError): pass
+        finally:
+            with S['lock']: S['viewers'] -= 1
+    def _vstream(self):
+        """On-camera H.264/H.265 frames, latency first (h264_stream.select skips to a keyframe)."""
+        with S['lock']: live = S['vcodec'] is not None and time.time() - S['vt'] < 2.0
+        if not live:
+            self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+        tos(self.connection, TOS_BACKGROUND)
+        try: self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)   # short queue
+        except OSError: pass
+        self.connection.settimeout(5.0)
+        self.send_response(200); self.send_header('Content-Type', 'application/octet-stream')
+        self.send_header('Cache-Control', 'no-store'); self.send_header('Connection', 'close'); self.end_headers()
+        self.close_connection = True
+        last = seen = None
+        with S['lock']: S['vviewers'] += 1
+        try:
+            while True:
+                with S['cond']:
+                    S['cond'].wait_for(lambda: S['vbuf'] and S['vbuf'][-1][0] != seen, timeout=1.0)
+                    buf, vt = list(S['vbuf']), S['vt']
+                if time.time() - vt > 5.0: return                 # camera stopped: let the page fall back
+                if not buf: continue
+                seen = buf[-1][0]
+                out = HS.select(buf, last, VIDEO_MAX_LAG)
+                if not out: continue
+                self.wfile.write(b''.join(HS.pack(k, d) for _, k, d in out))
+                last = out[-1][0]
+        except (BrokenPipeError, ConnectionResetError, OSError): pass   # includes the 5 s send timeout
+        finally:
+            with S['lock']: S['vviewers'] -= 1
+
     def do_POST(self):
+        tos(self.connection, TOS_VOICE)
         u = urlparse(self.path); n = int(self.headers.get('Content-Length', 0)); body = self.rfile.read(n)
+        if u.path == '/caps':                       # which video decoders this browser has
+            try: caps = {str(k)[:12]: bool(v) for k, v in json.loads(body.decode()).items()}
+            except (ValueError, AttributeError): self._json({'error': 'bad caps'}, 400); return
+            with S['lock']: changed = caps != S['caps']; S['caps'] = caps
+            if changed and NODE[0] is not None:
+                NODE[0].get_logger().info(f'browser video decoders ({self.client_address[0]}): {caps}')
+            self._json({'ok': True}); return
         if u.path == '/cmd':
             if accept(body, 'web:' + self.client_address[0]): self._json(status())
             else: self._json({'error': 'bad command'}, 400)
@@ -404,7 +523,11 @@ class H(BaseHTTPRequestHandler):
                 if not all(c['ok'] for c in checks) and not d.get('override'):
                     self._json({'error': 'preflight failed', 'checks': checks}, 409); return
                 SUP.heartbeat()
-                ok, msg = SUP.engage_policy(str(d.get('instruction', ''))[:200], d.get('max_speed', 0.6), scan_topic=scan_topic)
+                goal = str(d.get('goal', '') or '').replace(' ', '')
+                if goal and not re.fullmatch(r'-?\d+(\.\d+)?,-?\d+(\.\d+)?', goal):
+                    self._json({'error': 'goal must be x,y in metres (map frame)'}, 400); return
+                ok, msg = SUP.engage_policy(str(d.get('instruction', ''))[:200], d.get('max_speed', 0.6),
+                                            scan_topic=scan_topic, goal=goal)
                 self._json(auto_status() if ok else {'error': msg}, 200 if ok else 400); return
             rl = os.path.basename(str(d.get('raceline', '')))
             ok, checks = SUP.preflight(ages(), rl, odom)
@@ -466,7 +589,12 @@ def accept(raw, src):
 def status():
     with S['lock']:
         age = None if S['cmd'] is None else time.time() - S['cmd_t']
-        return {'link': age is not None and age < 0.25, 'age_ms': None if age is None else round(age * 1000), 'src': S['src'], 'v': S['v'], 'auto': SUP.engaged()}
+        vk, vr = None, S['vrate']
+        if len(vr) > 1 and vr[-1][0] > vr[0][0]:
+            vk = round(sum(b for _, b in vr) * 8 / (vr[-1][0] - vr[0][0]) / 1000)
+        vcodec = S['vcodec'] if S['vcodec'] and time.time() - S['vt'] < 2.0 else None
+        return {'link': age is not None and age < 0.25, 'age_ms': None if age is None else round(age * 1000), 'src': S['src'], 'v': S['v'], 'auto': SUP.engaged(),
+                'vcodec': vcodec, 'vkbps': vk}
 
 
 def ages():
@@ -518,6 +646,9 @@ class WebPilot(Node):
         self.teleop_pub = self.create_publisher(AckermannDriveStamped, p('teleop_topic'), 10)
         self.last_hold = 0.0
         self.create_subscription(Image, p('image_topic'), self._img, qos_profile_sensor_data)
+        self.declare_parameter('video_topic', '/oakd/video')       # on-camera H.264/H.265
+        self.create_subscription(CompressedImage, p('video_topic'), self._video,
+                                 QoSProfile(depth=30, reliability=ReliabilityPolicy.RELIABLE))
         self.declare_parameter('scan_topic', '/scan'); self.last_scan = 0.0
         self.create_subscription(LaserScan, p('scan_topic'), self._scan, qos_profile_sensor_data)
         # depth-derived virtual scan (depth_fusion node), overlaid on the page's lidar plot
@@ -567,16 +698,31 @@ class WebPilot(Node):
 
     def _img(self, m):
         now = time.time()
-        with S['lock']: v = dict(S['video']); S['seen']['image'] = now
+        with S['lock']:
+            v = dict(S['video']); S['seen']['image'] = now; viewers = S['viewers']
+        # the timestamp above is what the preflight camera check reads; the 5 ms of resize
+        # and JPEG below is only worth paying when a /stream client is actually connected
+        if not viewers: return
         if now - self.last_jpg < 1.0 / max(1.0, v['fps']) or m.encoding not in ('rgb8', 'bgr8'): return
         self.last_jpg = now
         a = np.frombuffer(m.data, np.uint8).reshape(m.height, m.width, 3)
-        if m.encoding == 'rgb8': a = a[:, :, ::-1]
         w = int(v['width'])
+        # resize first, and on the contiguous buffer: INTER_AREA over the reversed-stride
+        # rgb8 view costs 4.8 ms against 1.6 ms, and the swap is 0.04 ms once downscaled
         if m.width != w: a = cv2.resize(a, (w, int(m.height * w / m.width)), interpolation=cv2.INTER_AREA)
+        if m.encoding == 'rgb8': a = cv2.cvtColor(a, cv2.COLOR_RGB2BGR)
         ok, jpg = cv2.imencode('.jpg', a, [cv2.IMWRITE_JPEG_QUALITY, int(v['quality'])])
         if ok:
             with S['lock']: S['jpg'], S['jpg_t'] = jpg.tobytes(), now
+
+    def _video(self, m):
+        codec = 'h265' if m.format in ('h265', 'hevc') else 'h264'
+        data = bytes(m.data); now = time.time()
+        key = HS.is_keyframe(data, codec)
+        with S['cond']:
+            S['vseq'] += 1; S['vbuf'].append((S['vseq'], key, data))
+            S['vcodec'], S['vt'] = codec, now; S['vrate'].append((now, len(data)))
+            S['cond'].notify_all()
 
     def _scan(self, m):
         now = time.time()
