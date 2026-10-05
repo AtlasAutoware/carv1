@@ -19,16 +19,17 @@ Quick health check (second shell):
 - Servo: Hitec D625MW.
 
 ## vesc.yaml (src/f1tenth_system/f1tenth_stack/config/vesc.yaml)
-- speed_to_erpm_gain = 3575 (was 4614, the reference-car value). Used by odometry and by
-  control_mode "speed"; NOT used by "erpm" mode. Verify: drive a measured 5 m, compare /odom.
+- speed_to_erpm_gain = 4285, measured 2026-10-05 against the lidar (3575 from the assumed
+  gearing read 20% long; a 12T pinion would explain it). Used by odometry and by control_mode
+  "speed"; NOT used by "erpm" mode. vesc_to_odom_node needs it POSITIVE (measured, T7).
 - control_mode "erpm": stick fraction mapped between min_erpm 3000 and max_erpm 10000
-  (about 0.8 to 2.8 m/s with this gearing). Written to avoid the sensorless stall/smoke.
+  (about 0.7 to 2.3 m/s with the measured scale). Written to avoid the sensorless stall/smoke.
   With hall sensors that stall zone is gone, so "speed" mode (true m/s closed loop, what
   autonomy nodes expect) is viable again - bench test on a stand before switching.
-- STILL TO CALIBRATE with the D625MW: steering_angle_to_servo_offset (straight-ahead value),
-  servo_min / servo_max (lock-to-lock), steering_angle_to_servo_gain. Current values are
-  reference-car defaults.
-- wheelbase (vesc_to_odom_node) is 0.25 by default: measure axle-to-axle on this chassis.
+- Steering calibrated 2026-10-05 with tools/auto_calibrate.py: offset 0.6705 (straight ahead),
+  gain -0.9175. With the centre at 0.6705, right lock is ~0.25 rad against ~0.56 left: re-centre
+  the servo horn a spline tooth to even it out, then re-run the calibration.
+- wheelbase (vesc_to_odom_node) is 0.324 (Traxxas Slash 4x4 spec).
 - static TF base_link->laser is x=0.27 z=0.11: measure the C1's real position.
 
 ## Config edits need a rebuild (install is a copy, not a symlink)
@@ -108,3 +109,21 @@ Quick health check (second shell):
   (http://localhost:8081/). Plain http://10.42.0.1:8080/ still works with MJPEG.
 - After a power cut the car's T3U once came back with constant USB errors (status -71) and no link;
   re-seating it fixed it. Check `journalctl -k | grep -c "status: -71"` if the link does not return.
+
+## Calibration, unattended (2026-10-05)
+Put the car in a clear hallway pointing roughly along it, walk away, and run on the car:
+
+    ~/calib/calib_go.sh          # = tools/calib_go.sh next to tools/auto_calibrate.py
+
+It pauses web_pilot (the page streams neutral /teleop at ~17 Hz, and /teleop outranks /drive
+in ackermann_mux, so nothing on /drive moves the car while the page is open), lines the car up
+with the walls, drives about 6 m of arcs and straights at ~0.8 m/s, and resumes web_pilot. The
+report (~/calib/calib_<time>.txt) gives the servo offset and gain, the odometry sign and the
+eRPM-vs-lidar distance scale. It never edits vesc.yaml: apply the numbers, rebuild
+f1tenth_stack, ~/restart_remote.sh. `--dry` checks the sensors without moving.
+
+## Lidar orientation (2026-10-05)
+/scan was mirrored front to back until bringup_launch.py set `inverted: True` and
+`flip_x_axis: True` for rplidar_node. tools/lidar_live_check.py, run while someone drives,
+compares the lidar's own motion with the gyro and odometry (expect all agree).
+
