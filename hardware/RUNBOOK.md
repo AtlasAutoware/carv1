@@ -103,3 +103,8 @@ Quick health check (second shell):
 - Measured on the bench (adapters ~1 m apart): -32/-34 dBm, MCS 15 (144 Mbit/s PHY), iperf3 56 Mbit/s to the
   car and 40 Mbit/s back, ping p50 1.6 ms / p99 16 ms over 1,400 pings, 0% loss. Range not measured yet.
 - Details and the reasoning: docs/REMOTE.md, "The T3U pair".
+- Pilot video (2026-10-05): the OAK-D encodes H.264 itself (VIDEO_KBPS=1000 by default in run_remote.sh);
+  the page decodes it with WebCodecs only on a secure page, so open it with tools/pilot_tunnel.sh
+  (http://localhost:8081/). Plain http://10.42.0.1:8080/ still works with MJPEG.
+- After a power cut the car's T3U once came back with constant USB errors (status -71) and no link;
+  re-seating it fixed it. Check `journalctl -k | grep -c "status: -71"` if the link does not return.

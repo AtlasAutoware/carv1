@@ -69,6 +69,28 @@ A TP-Link Archer T3U (RTL8812BU, 2x2) on each end: one on a Jetson USB port, one
   and -60/-67 dBm with the laptop in the same place; part of that gap is the band, not the card.
   Range has not been measured yet.
 
+## Video from the camera's own encoder (2026-10-05)
+`run_remote.sh` now starts `oakd_camera` with `video_kbps:=1000`: the OAK-D's hardware encoder makes
+H.264 (baseline, 640x360, 30 fps, constant bitrate, keyframe every 15 frames) on `/oakd/video`, and
+the Jetson only forwards the bytes. `web_pilot` serves them on `/vstream` (u32 length, u8 flags,
+Annex-B frame); a viewer more than 6 frames behind skips to the newest keyframe, so a slow link
+costs frames, not latency. The page decodes with WebCodecs and falls back to the old MJPEG
+`/stream` when it cannot. `VIDEO_KBPS=0` turns it off; `VIDEO_CODEC=h265` switches the encoder (the
+encoder has no AV1, and the Orin Nano has no hardware encoder at all).
+
+- **Open it at localhost.** Browsers expose WebCodecs only on secure pages (HTTPS or localhost), so
+  on plain `http://10.42.0.1:8080/` the page shows MJPEG. `tools/pilot_tunnel.sh` opens the same page
+  at `http://localhost:8081/` through SSH, where it decodes H.264. Brave there reported H.264, H.265,
+  AV1 and VP9 decoders.
+- **Wi-Fi priority.** Sockets are marked by DSCP, which the kernel maps to the four WMM queues:
+  video CS1 (background), commands, status and the lidar plot CS6 (voice).
+- **Measured** over the T3U pair, 10 s each: H.264 1,036 kbit/s at 640x360 30 fps against the old
+  MJPEG's 1,302 kbit/s at 480x270 15 fps, so 3.6x the pixels per second on 20% less data. Capture to
+  Jetson: raw frames p50 54 ms, H.264 p50 64 ms. Ping 4.0 ms with either stream running, 2.2 ms idle.
+- **Not used: wfb-ng.** The long-range FPV approach (monitor mode, broadcast, FEC, no association)
+  needs a driver that sends injected frames at the rate in their radiotap header. rtw88 sends frames
+  that have no associated station at a fixed 6 Mbit/s; wfb-ng's own driver work targets RTL8812EU.
+
 ## Beyond WiFi: cellular / anywhere (Tailscale)
 1. Give the car internet: `carnet.sh tether` (phone on USB), or a USB LTE modem (Quectel EC25 /
    Huawei E3372-class sticks show up as a USB-Ethernet device and work the same way), or any WiFi.
