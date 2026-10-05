@@ -50,7 +50,10 @@ export ATLAS_IMAGE_TOPIC="$CAM_TOPIC"
 if [ "${1:-}" != "novideo" ]; then
   if [ "$CAMERA" = "oakd" ]; then
     # oakd_camera publishes /oakd/rgb (bgr8), /oakd/camera_info and /oakd/imu (body axes)
-    ros2 run f1tenth_gym_ros oakd_camera --ros-args --params-file "$CFG" > /tmp/remote_camera.log 2>&1 &
+    # On-camera H.264 for the pilot page (VIDEO_KBPS=0 turns it off; VIDEO_CODEC=h265 if the
+    # browser can decode it: the page reports its decoders in /tmp/remote.log).
+    ros2 run f1tenth_gym_ros oakd_camera --ros-args --params-file "$CFG" \
+        -p video_kbps:=${VIDEO_KBPS:-1000} -p video_codec:=${VIDEO_CODEC:-h264} > /tmp/remote_camera.log 2>&1 &
     sleep 4
   else
     # Depth on: the fusion node folds it into /scan_fused so the brake and planner see
