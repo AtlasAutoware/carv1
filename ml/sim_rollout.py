@@ -222,6 +222,9 @@ def main():
             for r in range(a.repeats) for i, t in enumerate(tasks)]
     t0 = time.time()
     pol = os.path.abspath(a.policy) if a.policy != 'expert' else 'expert'
+    if pol != 'expert' and not os.path.isfile(pol):
+        # otherwise every pool worker dies in _init and the pool respawns them forever
+        sys.exit(f'policy file not found: {pol}')
     with Pool(a.workers, initializer=_init, initargs=(pol,)) as p:
         results = list(p.imap_unordered(_work, jobs, chunksize=1))
     results.sort(key=lambda r: r['task_id'])
