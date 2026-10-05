@@ -76,7 +76,7 @@ the Jetson only forwards the bytes. `web_pilot` serves them on `/vstream` (u32 l
 Annex-B frame); a viewer more than 6 frames behind skips to the newest keyframe, so a slow link
 costs frames, not latency. The page decodes with WebCodecs and falls back to the old MJPEG
 `/stream` when it cannot. `VIDEO_KBPS=0` turns it off; `VIDEO_CODEC=h265` switches the encoder (the
-encoder has no AV1, and the Orin Nano has no hardware encoder at all).
+encoder has no AV1, and the Orin Nano has no hardware encoder at all). Since 10/5 the default is H.265 (`VIDEO_CODEC=h264` for browsers without an H.265 decoder): at the same 1 Mbit/s it looked much better.
 
 - **Open it at localhost.** Browsers expose WebCodecs only on secure pages (HTTPS or localhost), so
   on plain `http://10.42.0.1:8080/` the page shows MJPEG. `tools/pilot_tunnel.sh` opens the same page
