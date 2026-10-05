@@ -53,9 +53,56 @@ def read_vesc_yaml(path):
     t = open(path).read()
     num = lambda k, s=t: float(re.search(r'^\s*%s:\s*(-?[\d.]+)' % k, s, re.M).group(1))
     odom = t[t.index('vesc_to_odom_node:'):]
-    return dict(gain=num('steering_angle_to_servo_gain'), offset=num('steering_angle_to_servo_offset'),
-                smin=num('servo_min'), smax=num('servo_max'), erpm_gain=num('speed_to_erpm_gain'),
-                odom_erpm_gain=num('speed_to_erpm_gain', odom))
+    mode = re.search(r'^\s*control_mode:\s*"?(\w+)"?', t, re.M)
+    cfg = dict(gain=num('steering_angle_to_servo_gain'), offset=num('steering_angle_to_servo_offset'),
+               smin=num('servo_min'), smax=num('servo_max'), erpm_gain=num('speed_to_erpm_gain'),
+               odom_erpm_gain=num('speed_to_erpm_gain', odom), mode=mode.group(1) if mode else 'speed')
+    if cfg['mode'] == 'erpm':
+        cfg.update(max_speed=num('max_speed'), min_erpm=num('min_erpm'), max_erpm=num('max_erpm'),
+                   erpm_deadband=num('erpm_deadband'))
+    return cfg
+
+
+# ---------------------------------------------------------------- speed (fast runs, --target)
+# The motor, from the 10/5 runs at 0.8 m/s: ~60 ms from command to the first wheel movement, then a
+# ramp of ~2 m/s^2; braking ~1.6 m/s^2 after a quick initial drop. DEC_SAFE is the braking assumed
+# for safety margins, a little under what was logged.
+LAT, ACC, DEC_SAFE = 0.06, 2.0, 1.5
+
+
+def wheel_speed(cmd, cfg):
+    """Speed at the wheels (m/s) that ackermann_to_vesc makes of a /drive speed."""
+    if cfg.get('mode') != 'erpm': return abs(cmd)
+    thr = min(abs(cmd) / cfg['max_speed'], 1.0)
+    if thr < cfg['erpm_deadband']: return 0.0
+    return (cfg['min_erpm'] + thr * (cfg['max_erpm'] - cfg['min_erpm'])) / cfg['erpm_gain']
+
+
+def drive_cmd(v, cfg):
+    """The /drive speed that gives v m/s at the wheels."""
+    if cfg.get('mode') != 'erpm': return v
+    thr = (v * cfg['erpm_gain'] - cfg['min_erpm']) / (cfg['max_erpm'] - cfg['min_erpm'])
+    if not cfg['erpm_deadband'] <= thr <= 1.0:
+        lo = wheel_speed(cfg['erpm_deadband'] * cfg['max_speed'], cfg); hi = wheel_speed(cfg['max_speed'], cfg)
+        raise SystemExit('--target %.2f m/s: erpm mode can only hold %.2f..%.2f m/s' % (v, lo, hi))
+    return thr * cfg['max_speed']
+
+
+def power_dist(T, v):
+    """Distance covered while the throttle is held for T s from rest (dead time, ramp, cruise)."""
+    t = max(T - LAT, 0.0); ta = v / ACC
+    return 0.5 * ACC * t * t if t <= ta else 0.5 * v * ta + v * (t - ta)
+
+
+def power_time(s, v):
+    """Inverse of power_dist."""
+    ta = v / ACC; sa = 0.5 * v * ta
+    return LAT + (math.sqrt(2 * s / ACC) if s <= sa else ta + (s - sa) / v)
+
+
+def stop_dist(v):
+    """Roll-out after a stop command at v, with margin."""
+    return v * v / (2 * DEC_SAFE) + LAT * v + 0.15
 
 
 # ---------------------------------------------------------------- lidar helpers
@@ -369,7 +416,7 @@ class Run:
         self.psi = pre.get('psi0', 0.0)   # heading relative to the hallway, rad (walls, then gyro)
         self.k, self.b = A.prior_k, A.prior_b   # actual = k * commanded + b, until measured
         self.npts = 0                     # segments behind the current k, b
-        self.v = 0.95
+        self.v = max(0.95, A.v_exp)       # planning speed until a segment measures it
         self.dist = 0.0
         self.recs = []
         self.t0 = car.now()
@@ -389,7 +436,11 @@ class Run:
         if not c.core or t - c.core[-1][0] > 0.3: return 'VESC telemetry stale'
         if c.scan is None or t - c.scan_t > 0.4: return 'lidar stale'
         s, m = c.scan, c.mask
-        f = clear_dist(s, m, -20, 20)
+        # a fast run stops from further out, so it looks down a narrower cone: +-12 deg still covers
+        # the car's width (+-0.15 m) beyond 0.7 m, and a 20 deg cone at 1.4 m would see the side wall
+        # of a 2.4 m hallway whenever the car is turned toward it
+        cone = 12 if self.A.fast else 20
+        f = clear_dist(s, m, -cone, cone)
         if f < self.A.aeb_front: return 'obstacle ahead at %.2f m' % f
         side = min(clear_dist(s, m, 60, 120), clear_dist(s, m, -120, -60))
         if side < self.A.aeb_side: return 'side clearance %.2f m' % side
@@ -398,11 +449,14 @@ class Run:
     def wait_clear(self, d, T):
         """Hold still until the predicted path of this segment has been clear for 1 s."""
         act = self.k * d + self.b
-        dist = self.v * T
+        # fast: the modelled distance under power (dead time, ramp, cruise) plus 20%, and the longer
+        # roll-out of a faster car (A.tail). Planning the arc as if the car were at full speed at once
+        # would over-predict how far it turns and block every arc in a 2.4 m hallway.
+        dist = 1.2 * power_dist(T, max(self.v, self.A.v_exp)) if self.A.fast else self.v * T
         t0 = self.car.now(); since = None; said = False
         while self.car.now() - t0 < self.A.wait_clear:
             self.car.hold(0.1, 0.0, d)
-            pc = path_clearance(self.car.scan, self.car.mask, act, dist, floor=self.car.floor)
+            pc = path_clearance(self.car.scan, self.car.mask, act, dist, tail=self.A.tail, floor=self.car.floor)
             if pc >= self.A.path_margin:
                 since = since or self.car.now()
                 if self.car.now() - since >= 1.0: return True
@@ -481,6 +535,9 @@ class Run:
         act = self.k * d2 + self.b
         if act * self.psi >= 0: return None   # this arc would not bring the heading back
         if self.npts < 2: return T1           # no model yet: mirror the first arc
+        if self.A.fast:                       # most of a fast arc is spent speeding up
+            s = abs(self.psi) * L / max(math.tan(abs(act)), 1e-3)
+            return float(np.clip(power_time(s, self.v) + 0.05, 0.4, 1.3 * T1))
         w = self.v * math.tan(abs(act)) / L
         return float(np.clip(abs(self.psi) / max(w, 0.05) + 0.12, 0.3, 1.2))
 
@@ -488,12 +545,30 @@ class Run:
         """Constant steering for a 'straight' segment that also brings the heading back to the
         hallway axis over its length. Still one constant command, so still a valid data point."""
         if self.npts < 2: return self.straight()
-        act = math.atan(L * -self.psi / max(self.v * T, 0.3))
+        act = math.atan(L * -self.psi / max(power_dist(T, self.v) if self.A.fast else self.v * T, 0.3))
         return float(np.clip((act - self.b) / self.k, -0.15, 0.15))
+
+    def fast_plan(self):
+        """Segments for a run above ~1 m/s. The car needs v / ACC seconds (and about a metre) to get
+        up to speed, so segments are longer, and the steering angles are chosen so each arc still
+        turns the car only ~9 and ~15 degrees: the same hallway has to hold the run."""
+        v = self.A.v_exp; ta = LAT + v / ACC
+        T_arc, T_str = ta + 0.25, ta + 0.45
+        s = power_dist(T_arc, v)
+        d1, d2 = (float(min(0.16, math.atan(dpsi * L / s))) for dpsi in (0.16, 0.26))
+        return [('pair', d1, T_arc), ('pair', d2, T_arc), ('straight', T_str)]
 
     def execute(self):
         steps = [('pair', 0.12, 0.6), ('straight', 1.2), ('pair', 0.20, 0.55), ('straight', 1.2),
                  ('pair', 0.28, 0.5), ('straight', 1.2)]
+        if self.A.fast:
+            if abs(self.psi) > 0.2:           # no turning-back manoeuvre at speed
+                self.log('pointing %+.0f deg off the hallway: line the car up with it and start again'
+                         % math.degrees(self.psi))
+                return self.car.rest(0.0)
+            steps = self.fast_plan()
+            self.log('fast plan at %.2f m/s: arcs %.3f / %.3f rad for %.2f s, straight %.2f s'
+                     % (self.A.v_exp, steps[0][1], steps[1][1], steps[0][2], steps[2][1]))
         for _ in range(2):                    # line up with the hallway first if it is pointing off
             if abs(self.psi) <= 0.2: break
             cmd = -math.copysign(0.25, self.psi)
@@ -658,6 +733,22 @@ def _term(*_):
     raise KeyboardInterrupt
 
 
+def speed_setup(A, cfg):
+    """Settings that follow from the speed: --target -> --speed, the expected wheel speed, and for a
+    fast run (above ~1 m/s) the longer front e-stop distance and roll-out allowance."""
+    if A.target is not None: A.speed = drive_cmd(A.target, cfg)
+    A.v_exp = wheel_speed(A.speed, cfg)
+    if A.v_exp <= 0.0: raise SystemExit('/drive %.2f does not move the car (%s mode)' % (A.speed, cfg['mode']))
+    if A.v_exp > 2.4: raise SystemExit('%.2f m/s is more than this routine is meant for' % A.v_exp)
+    A.fast = A.v_exp > 1.05
+    A.tail = stop_dist(A.v_exp) if A.fast else 0.35          # roll-out allowed for in the path check
+    if A.fast:   # front lidar e-stop: scan age + dead time, braking, laser-to-bumper 0.18 m, margin
+        A.aeb_front = max(A.aeb_front, 0.18 + 0.16 * A.v_exp + A.v_exp ** 2 / (2 * DEC_SAFE) + 0.2)
+    print('/drive %.2f -> about %.2f m/s at the wheels (%s mode)%s' % (
+        A.speed, A.v_exp, cfg['mode'], '; fast plan, emergency stop at %.2f m, roll-out allowance %.2f m'
+        % (A.aeb_front, A.tail) if A.fast else ''), flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description='Unattended steering and odometry calibration (see the docstring).')
     ap.add_argument('--go', action='store_true', help='drive; without it nothing moves')
@@ -677,11 +768,16 @@ def main():
                     help='planning guess for the steering bias, rad (0.07 before the 10/5 calibration)')
     ap.add_argument('--max-dist', type=float, default=14.0)
     ap.add_argument('--max-time', type=float, default=180.0)
+    ap.add_argument('--target', type=float, default=None,
+                    help='speed at the wheels, m/s, instead of --speed (erpm mode: 0.79..2.33). Above ~1 m/s '
+                         'the run uses the fast plan: longer segments, smaller steering angles, and an '
+                         'emergency stop and path check sized for the longer stop')
     A = ap.parse_args()
     if A.go == A.dry: ap.error('pass exactly one of --dry or --go')
     import signal
     signal.signal(signal.SIGTERM, _term)
     cfg = read_vesc_yaml(VESC_YAML)
+    speed_setup(A, cfg)
     os.makedirs(OUT_DIR, exist_ok=True)
     stamp = time.strftime('%Y%m%d_%H%M%S')
     rclpy.init()
