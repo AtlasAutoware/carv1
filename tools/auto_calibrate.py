@@ -59,8 +59,9 @@ def read_vesc_yaml(path):
 
 
 # ---------------------------------------------------------------- lidar helpers
-LIDAR_FLIP = True       # /scan on the car is mirrored front-to-back (seen 2026-10-05 in the
-                        # hallway: a wall 2.3 m behind showed up ahead, side walls stayed put)
+LIDAR_FLIP = False      # True undoes a front-to-back mirrored /scan. The car's was mirrored until
+                        # 2026-10-05 (fixed in the driver: inverted + flip_x_axis in bringup_launch.py;
+                        # checked while driving: lidar rotation and travel agree with gyro and odom)
 
 
 def scan_arrays(m):
