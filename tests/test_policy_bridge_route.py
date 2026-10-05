@@ -60,7 +60,10 @@ class _Sess:
 def _make(mod, use_hint):
     B = mod.PolicyBridge.__new__(mod.PolicyBridge)
     B.p = {'instruction': 'go', 'stale': 0.5, 'max_speed': 1.0, 'max_steer': 0.4, 'aeb_dist': 0.35,
-           'pose_stale': 0.5, 'replan': 1.0}
+           'pose_stale': 0.5, 'replan': 1.0, 'lidar_x': 0.27, 'speed_map': 'raw', 'coast_below': 0.2}
+    # set in __init__ from the model's ONNX config: here a model trained with the car's sensor layout
+    B.model_lidar_x, B.model_cam_x = 0.27, 0.30; B.bev_dx = 0.0; B.needs_cam = True
+    B.erpm = dict(mod.ERPM_MODE)
     B.sess = _Sess(); B.order = ('speed', 'steer'); B.ids = np.zeros((1, 24), np.int64)
     B.front = np.zeros((96, 128, 3), np.uint8); B.t_img = B.t_scan = time.time()
     B.scan = (np.full(540, 5.0, np.float32), -math.pi, 2 * math.pi / 540); B.front_clear = 5.0
@@ -129,3 +132,44 @@ def test_old_model_ignores_route(bridge_mod):
     B._tick()
     assert B.pub[-1].drive.speed == pytest.approx(0.8)                  # drives with no goal at all
     assert B.sess.fed[-1][0][2:5] == pytest.approx([0.1, 0.2, 0.3])
+
+
+class _BevSess(_Sess):
+    def __init__(self): super().__init__(); self.bev = []
+    def run(self, names, feed):
+        self.bev.append(feed['bev'][0, 0].copy()); return super().run(names, feed)
+
+
+def test_inverse_speed_map_drives_the_asked_speed(bridge_mod):
+    """erpm mode: /drive 0.8 would roll at 0.96 m/s; the bridge sends what rolls at 0.8."""
+    import policy_io as PIO
+    B = _make(bridge_mod, False); B.p['speed_map'] = 'inverse'
+    B._tick()
+    drive = B.pub[-1].drive.speed
+    assert PIO.erpm_wheel_speed(drive) == pytest.approx(0.8, abs=1e-6) and drive == pytest.approx(0.3057, abs=1e-3)
+    assert PIO.erpm_wheel_speed(0.8) == pytest.approx(0.9615, abs=1e-3)      # what 'raw' would have done
+    B.sess.run = lambda names, feed: [np.array([[0.1, 0.0]], np.float32)]    # under coast_below: stop
+    B._tick(); assert B.pub[-1].drive.speed == 0.0
+    B.sess.run = lambda names, feed: [np.array([[0.5, 0.0]], np.float32)]    # under the floor: the floor
+    B._tick(); assert PIO.erpm_wheel_speed(B.pub[-1].drive.speed) == pytest.approx(PIO.erpm_floor(), abs=1e-6)
+    B.front_clear = 0.2; B._tick(); assert B.pub[-1].drive.speed == 0.0     # AEB still wins
+
+
+def test_scan_is_shifted_for_models_trained_with_the_lidar_at_the_axle(bridge_mod):
+    """A model from before 10/5 learned the scan from the rear axle; the car's laser is 0.27 m ahead."""
+    import policy_io as PIO
+    assert PIO.sensor_geom({}) == (0.0, 0.0)
+    assert PIO.sensor_geom({'sensor_geom': {'lidar_x': 0.27, 'cam_x': 0.3}}) == (0.27, 0.3)
+    B = _make(bridge_mod, False); B.sess = _BevSess()
+    r = np.full(540, 2.0, np.float32); B.scan = (r, -math.pi, 2 * math.pi / 540)
+    B.bev_dx = B.p['lidar_x'] - 0.0                                           # old model
+    B._tick()
+    assert np.array_equal(B.sess.bev[-1] * 255, PIO.bev_image(r, -math.pi, 2 * math.pi / 540, dx=0.27).astype(np.float32))
+    assert not np.array_equal(B.sess.bev[-1] * 255, PIO.bev_image(r, -math.pi, 2 * math.pi / 540).astype(np.float32))
+
+
+def test_lidar_only_model_does_not_wait_for_the_camera(bridge_mod):
+    B = _make(bridge_mod, False); B.front = None; B.t_img = 0.0
+    B._tick(); assert B.pub[-1].drive.speed == 0.0 and B.sess.fed == []      # camera model: waits
+    B.needs_cam = False; B._tick()
+    assert B.pub[-1].drive.speed == pytest.approx(0.8) and len(B.sess.fed) == 1

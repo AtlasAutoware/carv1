@@ -131,6 +131,7 @@ class OnnxPolicy:
         so = ort.SessionOptions(); so.intra_op_num_threads = 1; so.inter_op_num_threads = 1
         self.sess = ort.InferenceSession(path, so, providers=['CPUExecutionProvider'])
         self.order = PIO.action_order_of(self.sess)
+        self.lidar_x, self.cam_x = PIO.sensor_geom(PIO.model_config(self.sess))   # where training had the sensors
         if os.environ.get('LEGACY_SWAP') == '1':            # reproduce the pre-9/23 policy_bridge bug
             self.order = self.order[::-1]
 
@@ -219,6 +220,104 @@ def rollout(task, policy, beta=0.0, record=False, seed=0, perturb=None, dt=0.02,
     return res, data
 
 
+def rollout_car(task, policy, car, beta=0.0, record=False, seed=0, dt=0.02, sensor_hz=10.0, time_mult=2.0):
+    """One closed-loop episode under car conditions (ml/car_model.py): the lidar and camera where
+    the car has them and as old as there, the car-side route hint (noisy, lagged pose; no hint
+    inside goal_tol), policy_bridge's clips, AEB and speed mapping, motor and servo dynamics, and a
+    collision is any part of the car body touching a wall. policy: OnnxPolicy or None (= expert).
+    Recorded data has the same arrays as rollout()'s plus 'geom' = (lidar_x, cam_x): the clean
+    sensor readings (training adds its own noise), the state with the car-side hint, and the
+    expert's action for the TRUE state as the label."""
+    import car_model as CM
+    c = car; WB = c['wheelbase']
+    sm, _ = get_map(task['map']); path = [tuple(p) for p in task['path']]
+    rng = np.random.default_rng(seed); P = np.asarray(path)
+    cum = np.concatenate([[0.0], np.hypot(*np.diff(P, axis=0).T).cumsum()]); L = float(cum[-1])
+    sx, sy = path[0]; th0 = math.atan2(path[1][1] - sy, path[1][0] - sx)
+    st = np.array([sx, sy, th0, 0.0])
+    ids = PIO.text_ids(task['instruction'] if c['instruction'] == 'task' else c['instruction'])
+    angles = -math.pi + 2 * math.pi * np.arange(BEAMS) / BEAMS
+    inc = 2 * math.pi / BEAMS
+    timeout = time_mult * L / 0.8 + 8.0
+    hist = CM.History(max(c['lidar_lat'], c['cam_lat'], c['pose_lag']) + 2 * dt)
+    hint = CM.Hint(path, c, rng); motor = CM.Motor(c, dt); servo = CM.Servo(c, dt)
+    dart = CM.OU(c['dart'], c['dart_tau'], 1.0 / sensor_hz, rng)
+    # policy_bridge (10/5) centres the raster where the model's training had the lidar
+    bev_dx = c['lidar_x'] - policy.lidar_x if (c['bridge_shift'] and policy is not None) else 0.0
+    steer_now = 0.0; v_tgt = 0.0; s_cmd = 0.0; t = 0.0; next_tick = 0.0
+    rec = {'front': [], 'bev': [], 'state': [], 'act': [], 'scan': []}
+    res = {'task_id': task['task_id'], 'map': task['map'], 'route_m': round(L, 2), 'collided': False,
+           'reached': False, 'stopped_at_goal': False, 'progress': 0.0, 'time_s': 0.0,
+           'steer_err': 0.0, 'speed_err': 0.0, 'ticks': 0, 'student_ticks': 0, 'aeb_ticks': 0, 'max_speed': 0.0}
+    se = sp = 0.0; n = 0; at_goal = 0.0
+    while t < timeout:
+        hist.add(t, st)
+        if t >= next_tick - 1e-9:
+            next_tick += 1.0 / sensor_hz
+            sl = hist.at(t - c['lidar_lat']); sc = hist.at(t - c['cam_lat'])
+            scan = sm.raycast(sl[0] + c['lidar_x'] * math.cos(sl[2]), sl[1] + c['lidar_x'] * math.sin(sl[2]),
+                              sl[2] + angles, SCAN_MAX)
+            scan = np.clip(scan + rng.normal(0, 0.01, BEAMS), 0, SCAN_MAX).astype(np.float32)
+            rgb = render_fpv(sm, sc[0] + c['cam_x'] * math.cos(sc[2]), sc[1] + c['cam_x'] * math.sin(sc[2]), sc[2],
+                             CAM[0], CAM[1], CAM[2])
+            front = PIO.front_image(np.ascontiguousarray(rgb[:, :, ::-1]))   # the car feeds BGR
+            # what the car's policy gets: the C1's empty bins and range noise, and the camera as configured
+            seen = scan.copy()
+            if c['lidar_noise'] > 0: seen = seen + rng.normal(0, c['lidar_noise'], BEAMS).astype(np.float32)
+            if c['lidar_drop'] > 0: seen[rng.random(BEAMS) < c['lidar_drop']] = 0.0
+            if c['cam'] == 'render': fseen = front
+            elif c['cam'] == 'perturb': fseen = perturb_obs(front, seen, 'camera', rng)[0]
+            else: fseen = np.zeros_like(front)
+            h = hint(hist.at(t - c['pose_lag']))
+            if h is None:            # inside goal_tol: policy_bridge publishes zero speed and steering
+                v_cmd = s_cmd = 0.0
+            else:
+                wz = st[3] / WB * math.tan(steer_now)
+                state = np.array([st[3], wz, h[0], h[1], wz], np.float32)
+                ev, es, _, _ = pure_pursuit(st[:3], path, wheelbase=WB, v_max=c['expert_vmax'])
+                if record:
+                    rec['front'].append(front); rec['bev'].append(PIO.bev_image(scan, -math.pi, inc))
+                    rec['state'].append(state); rec['scan'].append(scan.astype(np.float16)); rec['act'].append((ev, es))
+                student = not (policy is None or rng.random() < beta)
+                if student:
+                    v, s = policy(fseen, PIO.bev_image(seen, -math.pi, inc, dx=bev_dx), state, ids)
+                    res['student_ticks'] += 1
+                else:
+                    v, s = ev, es + dart()
+                v_cmd, s_cmd = CM.bridge(v, s, seen, inc, c)
+                if v > 0.0 and math.isfinite(s) and v_cmd == 0.0: res['aeb_ticks'] += 1
+                if student:
+                    se += abs(s_cmd - es); sp += abs(v_cmd - ev); n += 1
+            v_tgt = CM.wheel_target(v_cmd, c)
+            res['ticks'] += 1
+        st2 = st.copy(); st2[3] = motor.step(st[3], v_tgt)
+        steer_now = servo.step(steer_now, s_cmd)
+        nxt = bicycle_step(st2, st2[3], steer_now, WB, dt)     # speed already set: its speed tracking is a no-op
+        t += dt
+        if CM.body_hits(sm, nxt) if c['footprint'] else sm.occupied(nxt[0], nxt[1]):
+            res['collided'] = True; break
+        st = nxt; res['max_speed'] = max(res['max_speed'], float(st[3]))
+        d = np.hypot(P[:, 0] - st[0], P[:, 1] - st[1]); i = int(np.argmin(d))
+        if d[i] < 1.0: res['progress'] = max(res['progress'], float(cum[i] / max(L, 1e-6)))
+        dg = math.hypot(P[-1, 0] - st[0], P[-1, 1] - st[1])
+        if dg < GOAL_TOL:
+            res['reached'] = True; res['progress'] = 1.0
+            if abs(st[3]) < STOP_V:
+                res['stopped_at_goal'] = True; at_goal += dt
+                if at_goal > 1.0: break
+    res['time_s'] = round(t, 2); res['max_speed'] = round(res['max_speed'], 3)
+    res['success'] = bool(res['reached'] and not res['collided'])
+    if n: res['steer_err'] = round(se / n, 4); res['speed_err'] = round(sp / n, 4)
+    data = None
+    if record and rec['act']:
+        data = {'front': np.asarray(rec['front'], np.uint8), 'bev': np.asarray(rec['bev'], np.uint8),
+                'state': np.asarray(rec['state'], np.float32), 'act': np.asarray(rec['act'], np.float32),
+                'scan': np.asarray(rec['scan'], np.float16),
+                'ids': np.repeat(np.asarray(ids, np.int64)[None], len(rec['act']), 0),
+                'geom': np.array([c['lidar_x'], c['cam_x']], np.float32)}
+    return res, data
+
+
 _POLICY = None
 
 
@@ -262,8 +361,12 @@ def _save_npz(fn, data):
 
 
 def _work(args):
-    task, beta, record, seed, perturb, out_dir = args
-    res, data = rollout(task, _POLICY, beta=beta, record=record, seed=seed, perturb=perturb)
+    task, beta, record, seed, perturb, out_dir = args[:6]
+    car = args[6] if len(args) > 6 else None
+    if car:
+        res, data = rollout_car(task, _POLICY, car, beta=beta, record=record, seed=seed)
+    else:
+        res, data = rollout(task, _POLICY, beta=beta, record=record, seed=seed, perturb=perturb)
     res['ep_seed'] = seed
     if data is not None and out_dir:
         fn = _episode_file(out_dir, task, seed); _save_npz(fn, data)
@@ -306,11 +409,12 @@ def summarize(results):
             'mean_speed_err_mps': f('speed_err')}
 
 
-def write_summary(out, results, policy, maps, seed, beta, perturb, secs):
+def write_summary(out, results, policy, maps, seed, beta, perturb, secs, car=None):
     results.sort(key=lambda r: (r['task_id'], r.get('ep_seed', 0)))
     _write_lines(os.path.join(out, 'episodes.jsonl'), [json.dumps(r) for r in results])
     summ = summarize(results); summ.update({'policy': policy, 'maps': maps, 'seed': seed, 'beta': beta,
                                             'perturb': perturb, 'secs': round(secs, 1)})
+    if car: summ['car'] = car
     by_map = {m: summarize([r for r in results if r['map'] == m]) for m in maps.split(',')}
     summ['by_map'] = by_map
     _write_lines(os.path.join(out, 'summary.json'), [json.dumps(summ, indent=1)])
@@ -342,7 +446,8 @@ def merge(out):
         secs += head.get('secs', 0.0); results += [json.loads(ln) for ln in lines[1:]]
     keys = [_key(r) for r in results]
     if len(set(keys)) != len(keys): sys.exit('merge: an episode appears in more than one part')
-    write_summary(out, results, sig0['policy'], sig0['maps'], sig0['seed'], sig0['beta'], sig0['perturb'], secs)
+    write_summary(out, results, sig0['policy'], sig0['maps'], sig0['seed'], sig0['beta'], sig0['perturb'], secs,
+                  sig0.get('car'))
 
 
 def main():
@@ -355,16 +460,27 @@ def main():
     ap.add_argument('--workers', type=int, default=16); ap.add_argument('--out', required=True)
     ap.add_argument('--shard', default='0/1', help='K/N: run only episodes K, K+N, K+2N, ... and write them to '
                     '<out>/parts/part-K-of-N.jsonl; `merge --out <out>` then writes episodes.jsonl + summary.json')
+    ap.add_argument('--car', default=None, help='run under car conditions (ml/car_model.py): a preset, '
+                    'e.g. car (the car with today\'s bridge), car_fixed, car_train')
+    ap.add_argument('--car-set', action='append', default=[], metavar='KEY=VALUE',
+                    help='override one car_model setting (JSON value), e.g. --car-set speed_map=\'"inverse"\'')
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     if a.mode == 'merge':
         merge(a.out); return
     k, N = (int(x) for x in a.shard.split('/'))
     assert 0 <= k < N, f'bad --shard {a.shard}'
+    car = None
+    if a.car:
+        import car_model
+        if a.perturb: sys.exit('--perturb and --car do not mix: the car preset says what the sensors do')
+        car = car_model.resolve(a.car, a.car_set); car['preset'] = a.car
+    elif a.car_set:
+        sys.exit('--car-set needs --car')
     tasks = get_tasks(a.maps.split(','), a.n, a.seed)
     record = a.mode == 'collect'
     jobs = [(t, a.beta, record, a.seed * 7919 + r * 104729 + i, a.perturb, a.out if record else None)
-            for r in range(a.repeats) for i, t in enumerate(tasks)][k::N]
+            + ((car,) if car else ()) for r in range(a.repeats) for i, t in enumerate(tasks)][k::N]
     t0 = time.time()
     pol = os.path.abspath(a.policy) if a.policy != 'expert' else 'expert'
     if pol != 'expert' and not os.path.isfile(pol):
@@ -375,6 +491,7 @@ def main():
     pfile = None if pol == 'expert' else [os.path.getsize(pol), int(os.path.getmtime(pol))]
     sig = {'mode': a.mode, 'policy': pol, 'policy_file': pfile, 'maps': a.maps, 'n': a.n, 'seed': a.seed,
            'repeats': a.repeats, 'beta': a.beta, 'perturb': a.perturb, 'shard': a.shard}
+    if car: sig['car'] = car
     if N == 1:
         jpath = os.path.join(a.out, 'episodes.partial.jsonl')
     else:
@@ -408,7 +525,7 @@ def main():
         os.remove(jpath)
         print(f'part {k}/{N} done: {len(results)} episodes, {secs:.0f} s', flush=True)
         return
-    write_summary(a.out, results, a.policy, a.maps, a.seed, a.beta, a.perturb, secs)
+    write_summary(a.out, results, a.policy, a.maps, a.seed, a.beta, a.perturb, secs, car)
     os.remove(jpath)
 
 

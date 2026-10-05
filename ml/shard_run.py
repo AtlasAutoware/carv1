@@ -70,6 +70,14 @@ DEFAULTS = {
     'gpu_free_mib': 2000,           # a GPU counts as free below this much memory in use
     'nice': 10,
     'max_crashes': 4,               # a shard that fails by itself (not killed) this often is given up
+    # ---- optional, added 10/5 for the car-conditions runs (defaults = the recipe above, unchanged)
+    'train_data': None,             # data dirs to train on (default: the sets' dirs); absolute or root-relative
+    'variants': None,               # [[name, train_flags, seeds], ...]; default [['route', train_flags, seeds]]
+    'external': [],                 # [[label, onnx path], ...]: models trained elsewhere, evaluated (not trained) here
+    'select': ['eval_sel', 'route'],  # [eval that ranks the models, <runs>/<dir> for the winner]
+    'select_external': False,       # may an external model win the selection?
+    'select_variants': None,        # only these variants may win (default: any)
+    'dagger': None,                 # second stage, see plan_dagger()
 }
 
 
@@ -136,76 +144,157 @@ class Task:
     def done(self): return os.path.isfile(self.out)
 
 
-def plan(root, C):
-    """Every shard of the run, dependencies before dependents."""
+def _entry(e):
+    """A set or eval entry: its fixed fields and the optional list of extra sim_rollout args."""
+    return list(e[:3]) + [list(e[3]) if len(e) > 3 else []]
+
+
+def _collect_tasks(root, C, T, sets, deps=(), base_rank=0):
+    """collect + merge shards for demo (or DAgger) sets; returns the merge task names. Extra
+    sim_rollout args of a set come after the defaults, so e.g. '--policy x --beta 0.3' wins."""
     py, ml = C['py'], os.path.join(root, 'ml'); maps = C['maps']; nmaps = len(maps.split(','))
-    T = {}
-
-    def add(t): T[t.name] = t
-
     merges = []
-    for si, (d, n, seed) in enumerate(C['sets']):
+    for si, e in enumerate(sets):
+        d, n, seed, extra = _entry(e)
         out = os.path.join(root, d); tag = os.path.basename(d.rstrip('/'))
         neps = n * nmaps; N = max(1, math.ceil(neps / C['shard_episodes'])); parts = []
         for k in range(N):
             name = f'collect:{tag}:{k}'; parts.append(name)
             # rank interleaves the sets (shard 0 of every set first), so the route planning of
             # every set's task list (get_tasks, minutes for a big set) starts right away, in parallel
-            add(Task(name, 'collect', [py, f'{ml}/sim_rollout.py', 'collect', '--policy', 'expert', '--beta', '1',
-                                       '--maps', maps, '--n', str(n), '--seed', str(seed), '--workers',
-                                       str(C['collect_workers']), '--out', out, '--shard', f'{k}/{N}'],
-                     out=f'{out}/parts/part-{k}-of-{N}.jsonl', slots=C['collect_workers'], rank=k * 1000 + si,
-                     progress=(lambda p=f'{out}/parts/part-{k}-of-{N}.partial.jsonl', tot=len(range(k, neps, N)):
-                               f'{count_lines(p)}/{tot} episodes')))
-        add(Task(f'merge:{tag}', 'merge', [py, f'{ml}/sim_rollout.py', 'merge', '--out', out],
-                 out=f'{out}/summary.json', deps=parts))
+            T[name] = Task(name, 'collect', [py, f'{ml}/sim_rollout.py', 'collect', '--policy', 'expert', '--beta', '1',
+                                             '--maps', maps, '--n', str(n), '--seed', str(seed), '--workers',
+                                             str(C['collect_workers']), '--out', out, '--shard', f'{k}/{N}'] + extra,
+                           out=f'{out}/parts/part-{k}-of-{N}.jsonl', deps=deps, slots=C['collect_workers'],
+                           rank=base_rank + k * 1000 + si,
+                           progress=(lambda p=f'{out}/parts/part-{k}-of-{N}.partial.jsonl', tot=len(range(k, neps, N)):
+                                     f'{count_lines(p)}/{tot} episodes'))
+        T[f'merge:{tag}'] = Task(f'merge:{tag}', 'merge', [py, f'{ml}/sim_rollout.py', 'merge', '--out', out],
+                                 out=f'{out}/summary.json', deps=parts)
         merges.append(f'merge:{tag}')
-    runs = os.path.join(root, C['runs']); data = [os.path.join(root, d) for d, _, _ in C['sets']]
-    add(Task('cache', 'cache', [py, f'{ml}/train_policy.py', '--data', *data, '--out', runs, '--build-cache-only',
-                                '--cache-workers', str(C['cache_workers'])],
-             out=f'{runs}/cache.json', deps=merges, slots=C['cache_workers']))
-    evals = []
-    for s in C['seeds']:
-        run = f'{runs}/route_s{s}'; tn = f'train:s{s}'
-        add(Task(tn, 'train', [py, f'{ml}/train_policy.py', '--data', *data, '--out', run, '--epochs', str(C['epochs']),
-                               '--seed', str(s), '--ckpt-mins', str(C['ckpt_mins'])] + list(C['train_flags']),
-                 out=f'{run}/student.onnx', deps=['cache'], slots=C['train_cpu'], gpu=True,
-                 progress=lambda run=run: f"epoch {count_lines(f'{run}/log.jsonl') + 1}/{C['epochs']}"))
-        for name, tseed, pert in C['evals']:
-            en = f'eval:s{s}:{name}'; evals.append(en); out = f'{run}/{name}'
-            cmd = [py, f'{ml}/sim_rollout.py', 'eval', '--policy', f'{run}/student.onnx', '--maps',
-                   f"{maps},{C['eval_extra_maps']}", '--n', str(C['neval']), '--seed', str(tseed),
-                   '--workers', str(C['eval_workers']), '--out', out]
-            if pert != 'none': cmd += ['--perturb', pert]
-            tot = C['neval'] * (nmaps + len(C['eval_extra_maps'].split(',')))
-            add(Task(en, 'eval', cmd, out=f'{out}/summary.json', deps=[tn], slots=C['eval_workers'],
-                     progress=lambda p=f'{out}/episodes.partial.jsonl', tot=tot: f'{count_lines(p)}/{tot} episodes'))
-    add(Task('select', 'select', out=f'{runs}/route/choice.json', deps=evals,
-             inline=lambda: select(root, runs)))
+    return merges
+
+
+def _eval_tasks(root, C, T, label, run, onnx, deps):
+    """The closed-loop evals (config `evals`) of one model; outputs in <run>/<eval name>/."""
+    py, ml = C['py'], os.path.join(root, 'ml'); maps = C['maps']; nmaps = len(maps.split(','))
+    names = []
+    for e in C['evals']:
+        name, tseed, pert, extra = _entry(e)
+        en = f'eval:{label}:{name}'; names.append(en); out = f'{run}/{name}'
+        cmd = [py, f'{ml}/sim_rollout.py', 'eval', '--policy', onnx, '--maps',
+               f"{maps},{C['eval_extra_maps']}", '--n', str(C['neval']), '--seed', str(tseed),
+               '--workers', str(C['eval_workers']), '--out', out]
+        if pert != 'none': cmd += ['--perturb', pert]
+        cmd += extra
+        tot = C['neval'] * (nmaps + len(C['eval_extra_maps'].split(',')))
+        T[en] = Task(en, 'eval', cmd, out=f'{out}/summary.json', deps=deps, slots=C['eval_workers'],
+                     progress=lambda p=f'{out}/episodes.partial.jsonl', tot=tot: f'{count_lines(p)}/{tot} episodes')
+    return names
+
+
+def _model_tasks(root, C, T, runs, data, variants, cache, epochs):
+    """One training shard per variant and seed (one GPU each), then its evals.
+    Returns ([(run dir, onnx, variant)], eval task names). Variant 'route' keeps the original names
+    (train:s<seed>, runs_ext/route_s<seed>)."""
+    py, ml = C['py'], os.path.join(root, 'ml')
+    models, evals = [], []
+    for vname, flags, seeds in variants:
+        for s in seeds:
+            label = f's{s}' if vname == 'route' else f'{vname}_s{s}'
+            run = f'{runs}/{vname}_s{s}'; tn = f'train:{label}'
+            if tn in T: sys.exit(f'two models would both be called {label}')
+            T[tn] = Task(tn, 'train', [py, f'{ml}/train_policy.py', '--data', *data, '--out', run, '--epochs', str(epochs),
+                                       '--seed', str(s), '--ckpt-mins', str(C['ckpt_mins'])] + list(flags),
+                         out=f'{run}/student.onnx', deps=[cache], slots=C['train_cpu'], gpu=True,
+                         progress=lambda run=run, ep=epochs: f"epoch {count_lines(f'{run}/log.jsonl') + 1}/{ep}")
+            models.append((run, f'{run}/student.onnx', vname))
+            evals += _eval_tasks(root, C, T, label, run, f'{run}/student.onnx', [tn])
+    return models, evals
+
+
+def plan(root, C):
+    """Every shard of the run, dependencies before dependents."""
+    py, ml = C['py'], os.path.join(root, 'ml')
+    T = {}
+    merges = _collect_tasks(root, C, T, C['sets'])
+    runs = os.path.join(root, C['runs'])
+    data = [os.path.join(root, d) for d in (C['train_data'] or [e[0] for e in C['sets']])]
+    T['cache'] = Task('cache', 'cache', [py, f'{ml}/train_policy.py', '--data', *data, '--out', runs, '--build-cache-only',
+                                         '--cache-workers', str(C['cache_workers'])],
+                      out=f'{runs}/cache.json', deps=merges, slots=C['cache_workers'])
+    variants = C['variants'] or [['route', C['train_flags'], C['seeds']]]
+    models, evals = _model_tasks(root, C, T, runs, data, variants, 'cache', C['epochs'])
+    external = []
+    for label, onnx in C['external']:
+        run = f'{runs}/{label}'
+        if any(run == m[0] for m in models): sys.exit(f'external model {label} clashes with a trained one')
+        external.append((run, os.path.join(root, onnx), None))
+        evals += _eval_tasks(root, C, T, label, run, os.path.join(root, onnx), [])
+    sel = list(C['select']) + ['eval_none'][len(C['select']) - 2:]
+    cand = candidates(C, models, external)
+    T['select'] = Task('select', 'select', out=f'{runs}/{sel[1]}/choice.json', deps=evals,
+                       inline=lambda: select(root, runs, cand, sel[0], sel[1], sel[2]))
+    if C['dagger']: plan_dagger(root, C, T, runs, data, models, external, sel)
     return T
 
 
-def select(root, runs):
-    """ml/run_route.sh select, with atomic outputs: rank the seeds on the selection set (task seed
-    3000) and copy the winner to <runs>/route/student.onnx; choice.json is written last."""
+def plan_dagger(root, C, T, runs, data, models, external, sel):
+    """Second stage (config `dagger`, a dict): DAgger sets collected with the first stage's chosen
+    model driving (--policy <runs>/<select dir>/student.onnx --beta <beta>, labels from the expert),
+    a data cache of the first stage's data plus these sets, the `variants` trained on it, the same
+    evals, and a final selection over BOTH stages' models, so DAgger has to beat the first stage.
+      {'sets': [[dir, tasks per map, task seed(, extra args)]], 'beta': 0.3, 'variants': [[name, flags, seeds]],
+       'epochs': 40, 'train_data': [dirs] (default: first-stage data + the sets), 'select': [eval, dir(, std eval)]}"""
+    py, ml = C['py'], os.path.join(root, 'ml'); D = C['dagger']
+    pol = f'{runs}/{sel[1]}/student.onnx'
+    sets = [[e[0], e[1], e[2], ['--policy', pol, '--beta', str(D.get('beta', 0.3))] + _entry(e)[3]] for e in D['sets']]
+    merges = _collect_tasks(root, C, T, sets, deps=['select'], base_rank=100)
+    data2 = [os.path.join(root, d) for d in D['train_data']] if D.get('train_data') else data + [os.path.join(root, e[0]) for e in D['sets']]
+    cache_out = f'{runs}/dagger_cache'
+    T['cache:dagger'] = Task('cache:dagger', 'cache', [py, f'{ml}/train_policy.py', '--data', *data2, '--out', cache_out,
+                                                       '--build-cache-only', '--cache-workers', str(C['cache_workers'])],
+                             out=f'{cache_out}/cache.json', deps=merges, slots=C['cache_workers'])
+    models2, evals2 = _model_tasks(root, C, T, runs, data2, D['variants'], 'cache:dagger', D.get('epochs', C['epochs']))
+    sel2 = list(D.get('select', sel[:2])) + [sel[2]][len(D.get('select', sel[:2])) - 2:]
+    cand = candidates(C, models + models2, external)
+    T['select:dagger'] = Task('select:dagger', 'select', out=f'{runs}/{sel2[1]}/choice.json', deps=evals2 + ['select'],
+                              inline=lambda: select(root, runs, cand, sel2[0], sel2[1], sel2[2]))
+
+
+def candidates(C, models, external):
+    """The models a selection may pick: trained ones of the allowed variants, external ones if allowed."""
+    ok = [m for m in models if C['select_variants'] is None or m[2] in C['select_variants']]
+    return [(r, o) for r, o, _ in ok + (external if C['select_external'] else [])]
+
+
+def select(root, runs, models, sel_eval='eval_sel', out_dir='route', std_eval='eval_none'):
+    """ml/run_route.sh select, with atomic outputs: rank the models on the selection eval (by
+    default the task-seed-3000 set) by success, then fewest collisions, then progress, and copy the
+    winner to <runs>/<out_dir>/student.onnx; choice.json is written last. models: [(run dir, onnx)]."""
     rows = []
-    for d in sorted(glob.glob(f'{runs}/route_s*')):
-        f = os.path.join(d, 'eval_sel', 'summary.json')
-        if os.path.isfile(f) and os.path.isfile(os.path.join(d, 'student.onnx')):
+    for d, onnx in models:
+        f = os.path.join(d, sel_eval, 'summary.json')
+        if os.path.isfile(f) and os.path.isfile(onnx):
             s = load_json(f, None); rel = os.path.relpath(d, root)
-            rows.append((s['success_rate'], -s['collision_rate'], s['mean_progress'], rel))
-    rows.sort(reverse=True)
+            rows.append((s['success_rate'], -s['collision_rate'], s['mean_progress'], rel, onnx))
+    if not rows: raise RuntimeError(f'no model has a {sel_eval} result')
+    rows.sort(key=lambda r: r[:4], reverse=True)
     for r in rows:
-        log(f"  {r[3]}: selection success {100 * r[0]:.1f}%  collisions {-100 * r[1]:.1f}%  progress {100 * r[2]:.1f}%")
-    best = rows[0][3]; os.makedirs(f'{runs}/route', exist_ok=True)
-    tmp = f'{runs}/route/student.onnx.tmp{os.getpid()}'
-    shutil.copyfile(os.path.join(root, best, 'student.onnx'), tmp)
+        log(f"  {r[3]}: {sel_eval} success {100 * r[0]:.1f}%  collisions {-100 * r[1]:.1f}%  progress {100 * r[2]:.1f}%")
+    best, best_onnx = rows[0][3], rows[0][4]; os.makedirs(f'{runs}/{out_dir}', exist_ok=True)
+    tmp = f'{runs}/{out_dir}/student.onnx.tmp{os.getpid()}'
+    shutil.copyfile(best_onnx, tmp)
     fd = os.open(tmp, os.O_RDONLY); os.fsync(fd); os.close(fd)
-    os.replace(tmp, f'{runs}/route/student.onnx')
-    std = load_json(os.path.join(root, best, 'eval_none', 'summary.json'), None)
-    atomic_text(f'{runs}/route/choice.json', json.dumps(
-        {'chosen': best, 'selection_ranking': [[r[3], r[0], -r[1], r[2]] for r in rows], 'standard_eval': std}, indent=1))
-    log(f"CHOSEN {best}: standard-set success {100 * std['success_rate']:.1f}%  collisions {100 * std['collision_rate']:.1f}%")
+    os.replace(tmp, f'{runs}/{out_dir}/student.onnx')
+    std = load_json(os.path.join(root, best, std_eval, 'summary.json'), None)
+    atomic_text(f'{runs}/{out_dir}/choice.json', json.dumps(
+        {'chosen': best, 'selection_eval': sel_eval, 'selection_ranking': [[r[3], r[0], -r[1], r[2]] for r in rows],
+         'standard_eval': std}, indent=1))
+    if std:
+        log(f"CHOSEN {best}: {std_eval} success {100 * std['success_rate']:.1f}%  collisions {100 * std['collision_rate']:.1f}%")
+    else:
+        log(f'CHOSEN {best} (no {std_eval} result)')
 
 
 def child_env(C, t, gpu):
@@ -319,7 +408,8 @@ def orchestrate(root, C, P):
         write_status(root, C, P, T, st, state)
         if all(v == 'done' for v in st.values()):
             atomic_text(os.path.join(P['st'], 'DONE'), now() + '\n'); timer_off(root)
-            log(f"ALL DONE: {os.path.join(C['runs'], 'route', 'choice.json')}"); return
+            final = (C['dagger'] or {}).get('select', C['select'])[1] if C['dagger'] else C['select'][1]
+            log(f"ALL DONE: {os.path.join(C['runs'], final, 'choice.json')}"); return
         active = [n for n, v in st.items() if v in ('running', 'orphan')]
         ready = [n for n, v in st.items() if v == 'ready']
         if not active and not ready:

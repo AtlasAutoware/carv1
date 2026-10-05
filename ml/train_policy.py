@@ -86,12 +86,14 @@ def _build_part(job):
     """Episode shards files[...] (global index lo, lo+1, ...) -> <name>.front.u8 (camera frames,
     raw uint8 rows) + <name>.npz (scan, state, act, ids, grp, row count), each written atomically."""
     files, lo, cdir, name, max_per_file, seed, keep_stops = job
-    small = {k: [] for k in ('scan', 'state', 'act', 'ids', 'grp')}; n = dropped = 0; fshape = None
+    small = {k: [] for k in ('scan', 'state', 'act', 'ids', 'grp')}; n = dropped = 0; fshape = None; geoms = set()
     ffn = os.path.join(cdir, name + '.front.u8'); tmp = f'{ffn}.tmp{os.getpid()}'
     with open(tmp, 'wb') as ff:
         for gi, f in enumerate(files, lo):
             z = np.load(f); act = z['act']
             if len(act) == 0 or z['scan'].shape[1] != BEAMS: continue
+            # where the lidar and camera were (m ahead of the rear axle); the sim had both at 0 until 10/5
+            geoms.add(tuple(round(float(x), 4) for x in z['geom']) if 'geom' in z.files else (0.0, 0.0))
             m = len(act); sel = np.arange(m)
             # cap only on-policy (DAgger) shards, as in load_shards()
             if max_per_file and m > max_per_file and 'dagger' in os.path.basename(os.path.dirname(f)):
@@ -109,7 +111,8 @@ def _build_part(job):
         ff.flush(); os.fsync(ff.fileno())
     os.replace(tmp, ffn)
     arrs = {k: np.concatenate(v) for k, v in small.items() if v}
-    arrs.update(n=np.int64(n), dropped=np.int64(dropped), fshape=np.array(fshape or (0,), np.int64))
+    arrs.update(n=np.int64(n), dropped=np.int64(dropped), fshape=np.array(fshape or (0,), np.int64),
+                geoms=np.array(sorted(geoms), np.float64).reshape(-1, 2))
     atomic_write(os.path.join(cdir, name + '.npz'), lambda f: np.savez(f, **arrs))
     return name, n
 
@@ -128,13 +131,17 @@ def _build_cache_parts(files, cdir, max_per_file, seed, keep_stops, workers):
             for nm, n in ex.map(_build_part, jobs): report(nm, n)
     else:
         for j in jobs: report(*_build_part(j))
-    parts, total, dropped, fshape = [], 0, 0, None
+    parts, total, dropped, fshape, geoms = [], 0, 0, None, set()
     for nm in names:
         z = np.load(os.path.join(cdir, nm + '.npz')); n = int(z['n'])
         parts.append({'name': nm, 'n': n}); total += n; dropped += int(z['dropped'])
         if n and fshape is None: fshape = [int(x) for x in z['fshape']]
+        geoms |= {tuple(float(v) for v in g) for g in (z['geoms'] if 'geoms' in z.files else [(0.0, 0.0)])}
+    if len(geoms) > 1:
+        # one network, one sensor layout: the car-side bridge can only match one of them
+        raise SystemExit(f'the data mixes sensor positions (lidar_x, cam_x) {sorted(geoms)}; train on one')
     meta = {'n': total, 'front_shape': fshape, 'files': len(files), 'dropped_stops': dropped,
-            'keep_stops': keep_stops, 'parts': parts}
+            'keep_stops': keep_stops, 'parts': parts, 'geom': list(geoms.pop() if geoms else (0.0, 0.0))}
     atomic_write(os.path.join(cdir, 'meta.json'), lambda f: f.write(json.dumps(meta).encode()))
     print(f'cache built: {total} steps in {time.time() - t0:.0f} s', flush=True)
 
@@ -289,7 +296,7 @@ def main():
     vm = np.array([g in val_g for g in grp]); tr_idx, va_idx = np.where(~vm)[0], np.where(vm)[0]
     A = D['act'][tr_idx]; mu, sd = A.mean(0), A.std(0) + 1e-6
     atomic_write(os.path.join(a.out, 'action_norm.npy'), lambda f: np.save(f, np.stack([mu, sd])))
-    dev = 'cuda'
+    dev = 'cuda' if torch.cuda.is_available() else 'cpu'      # cpu: smoke tests only
     print(f'{nf} shards, {len(tr_idx)} train / {len(va_idx)} val steps, action mean {mu.round(3)} sd {sd.round(3)}', flush=True)
     # camera frames (~95% of the bytes) stay in the on-disk cache and are read a batch at a
     # time by a background thread; everything else lives on the GPU
@@ -418,7 +425,9 @@ def main():
             print(f'signal {term[0]}: checkpoint written after epoch {ep}, exiting', flush=True)
             sys.exit(128 + term[0])
     atomic_write(os.path.join(a.out, 'last.pt'), lambda f: torch.save(model.state_dict(), f))
-    export(model, os.path.join(a.out, 'best.pt'), mu, sd, os.path.join(a.out, 'student.onnx'), vars(a))
+    g = meta.get('geom', [0.0, 0.0])          # caches built before 10/5 carry none: the sim's sensors at the rear axle
+    export(model, os.path.join(a.out, 'best.pt'), mu, sd, os.path.join(a.out, 'student.onnx'),
+           dict(vars(a), sensor_geom={'lidar_x': float(g[0]), 'cam_x': float(g[1])}))
     print(f'done: best val score {best:.4f} -> {a.out}/student.onnx', flush=True)
 
 
