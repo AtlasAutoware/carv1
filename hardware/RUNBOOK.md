@@ -70,8 +70,9 @@ Quick health check (second shell):
   are publishing. Run `tegrastats` in another shell to observe GPU activity.
 
 ## Remote pilot mode (2026-09-02)
-- The car is its own hotspot: SSID AtlasCar (NetworkManager connection, autoconnect, 5 GHz ch 36), car = 10.42.0.1.
-  Internet on the Jetson instead: sudo nmcli con up iPhone ; back: sudo nmcli con up AtlasCar.
+- The car is its own hotspot: SSID AtlasCar (NetworkManager connection, autoconnect), car = 10.42.0.1.
+  Since 2026-10-05 it runs on the USB TP-Link T3U (2.4 GHz ch 6, WPA3); see "Car link on two T3Us" below.
+  Internet on the Jetson at the same time: the onboard card is free, carnet.sh client/home/tether.
 - On the car: ~/run_remote.sh (or ~/restart_remote.sh to bounce it). Then open http://10.42.0.1:8080/
   (http://192.168.55.1:8080/ over USB-C): FPV stream, W/S throttle, A/D steer, max-throttle slider,
   gamepad via the browser (hold LB), lidar plot. Release everything = neutral; 250 ms watchdog on the car.
@@ -80,7 +81,7 @@ Quick health check (second shell):
 
 ## Range, trim, robustness (2026-09-02, later)
 - Steering trim: Q/E on the web page (stored on the car in ~/.atlascar_trim.json); for autonomy apply the equivalent to vesc.yaml steering_angle_to_servo_offset (see docs/REMOTE.md).
-- Networks: hardware/scripts/carnet.sh  hotspot | hotspot24 | client <SSID> [pw] | tether | status.
+- Networks: hardware/scripts/carnet.sh  hotspot | hotspot5 | client <SSID> [pw] | home | tether | status.
 - Anywhere/cellular: install_tailscale.sh once, then http://atlascar:8080/ with video=low and PILOT_TIMEOUT=0.6 run_remote.sh lowbw.
 - vesc_driver/ackermann_to_vesc/joy respawn after a VESC USB blip (they used to die with std::system_error).
 
@@ -89,3 +90,16 @@ Quick health check (second shell):
 - Autonomy publishes /drive (mux priority 10); holding a key or LB (teleop, priority 100) always overrides.
 - joy_teleop_f310.yaml lost its deadman-less 'default' block: it streamed zero teleop that masked autonomy in the mux. web_pilot now publishes that brake-to-zero itself, and suppresses it while engaged.
 - Track picture -> map -> raceline in the same panel (see docs/REMOTE.md). Scale comes from the lane width you type in.
+
+## Car link on two TP-Link T3Us (2026-10-05)
+- Car: TP-Link Archer T3U (RTL8812BU) on a Jetson USB port hosts AtlasCar: 2.4 GHz ch 6, 20 MHz, WPA3-SAE with
+  PMF required, AES-CCMP, US rules. NVIDIA's kernel has no rtw88: hardware/scripts/install_t3u_driver.sh builds
+  lwfinger/rtw88 (rerun after a kernel update). The onboard card keeps a manual WPA2 fallback (AtlasCarOnboard,
+  5 GHz ch 149), used by `carnet.sh hotspot` when no T3U is plugged in.
+- Laptop: a second T3U. Its NetworkManager profile "AtlasCar" is bound to that adapter's MAC, never takes the
+  default route or DNS, and is locked to the car T3U's BSSID: the lock stops background scans, which stalled
+  the link for ~100 ms every few seconds. "AtlasCar-fallback" (any BSSID/band) covers the onboard fallback.
+- Both adapters stay in USB 2 mode (rtw88 switch_usb_mode=n): USB 3 radiates noise into 2.4 GHz.
+- Measured on the bench (adapters ~1 m apart): -32/-34 dBm, MCS 15 (144 Mbit/s PHY), iperf3 56 Mbit/s to the
+  car and 40 Mbit/s back, ping p50 1.6 ms / p99 16 ms over 1,400 pings, 0% loss. Range not measured yet.
+- Details and the reasoning: docs/REMOTE.md, "The T3U pair".
