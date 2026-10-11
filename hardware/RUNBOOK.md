@@ -27,8 +27,12 @@ Quick health check (second shell):
   With hall sensors that stall zone is gone, so "speed" mode (true m/s closed loop, what
   autonomy nodes expect) is viable again - bench test on a stand before switching.
 - Steering calibrated 2026-10-05 with tools/auto_calibrate.py: offset 0.6705 (straight ahead),
-  gain -0.9175. With the centre at 0.6705, right lock is ~0.25 rad against ~0.56 left: re-centre
-  the servo horn a spline tooth to even it out, then re-run the calibration.
+  gain -0.9175. Re-measured 2026-10-09 (12 runs, 0.8-1.5 m/s): the centre had moved to 0.6785-0.684
+  at every speed (the car pulled ~0.5 deg one way going forward, and reversing showed it as a strong
+  bias), so the offset is now 0.680 (backup vesc.yaml.bak.20261009_calib on the car). The gain falls
+  with speed (about -0.875 at 0.8 m/s to -0.985 at 1.5 on small angles); -0.9175 stays as the middle.
+  With the centre at 0.680, right lock is ~0.24 rad against ~0.58 left: re-centre the servo horn a
+  spline tooth to even it out, then re-run the calibration.
 - wheelbase (vesc_to_odom_node) is 0.324 (Traxxas Slash 4x4 spec).
 - static TF base_link->laser is x=0.27 z=0.11: measure the C1's real position.
 
@@ -127,3 +131,27 @@ f1tenth_stack, ~/restart_remote.sh. `--dry` checks the sensors without moving.
 `flip_x_axis: True` for rplidar_node. tools/lidar_live_check.py, run while someone drives,
 compares the lidar's own motion with the gyro and odometry (expect all agree).
 
+
+## High-speed calibration, back to the start, pilot page button (2026-10-09)
+- Copies on the car live in ~/calib (auto_calibrate.py, calib_go.sh, return_start.py, return_go.sh,
+  sweep_go.sh, all from tools/). `calib_go.sh --target 1.3` runs the fast plan at 1.3 m/s.
+- `return_start.py --save` at the start spot records it (~/calib/start_ref.json: the wall behind, the
+  side walls). `return_go.sh` backs the car up to it at ~0.8 m/s, steering on the side walls and
+  stopping on the wall behind; a car left 10-40 deg off the hallway is first straightened by backing
+  up on full lock. It stops for anything behind or beside the car, and waits if the way back is blocked.
+- `sweep_go.sh 1.1 1.3 1.5` = for each speed: back to the start, one calibration run; stops at the
+  first run or return that does not finish cleanly. Log: ~/calib/sweep_<time>.log.
+- Pilot page: panel "Calibration (drives on its own)": speeds, RUN CALIBRATION, STOP, back to
+  start, set start here; progress and per-run results show in the panel. While it runs web_pilot
+  holds off its zero /teleop (CALIB_FROM_PILOT=1 tells the scripts not to pause web_pilot); STOP,
+  Space/Esc or any key/gamepad input stops it. It runs on the car: closing the tab does not stop it.
+- After editing web_pilot.py: ~/restart_pilot.sh (symlink install, no rebuild). No video on the page
+  and "0.0 fps" in /tmp/remote_camera.log: ~/restart_camera.sh (10/9: an XLink error stopped RGB/H.265).
+- Video is HEVC by default everywhere (10/9): oakd_camera's own defaults and config/hardware.yaml say
+  video_kbps 1000, video_codec h265, so car_bringup_launch.py gets it too, not only run_remote.sh. The
+  node reopens the camera by itself when RGB or video stops for stall_restart_s (5 s). The page switches
+  from its MJPEG fallback back to HEVC as soon as the camera encodes again (it used to stay on MJPEG).
+- Measured 10/9 (hallway 2.58 m wide): the car travels ~2.3 deg toward -y of the lidar's zero, forward
+  and backward (laser yaw offset or crabbing); return_start corrects for it (LIDAR_YAW).
+- The lidar sees this hallway's far end wall only from ~13 m; the scripted run lengths keep the car
+  well short of it.
