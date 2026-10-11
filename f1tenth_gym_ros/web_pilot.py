@@ -11,7 +11,7 @@ seconds (0.25) a neutral Joy is published and the car stops. /joy feeds the unch
 F1TENTH chain: joy_teleop (F310 profile: button 4 = dead-man, axis 1 throttle, axis 3
 steer) -> ackermann_mux -> ackermann_to_vesc -> vesc_driver.
 """
-import collections, json, os, re, socket, threading, time
+import collections, json, os, re, signal, socket, subprocess, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import numpy as np, cv2
@@ -55,8 +55,84 @@ def tos(sock, value):
         pass
 
 
+class Calib:
+    """Unattended calibration started from the page (~/calib, from tools/): sweep_go.sh runs
+    auto_calibrate at each speed and backs the car up to the start spot between runs
+    (return_start.py); return_go.sh only backs up; return_start.py --save records the start.
+    One job at a time, in its own process group so STOP reaches every child (auto_calibrate and
+    return_start send zero speed on SIGTERM). While a job runs, web_pilot holds off its
+    zero-speed /teleop (it would mask /drive in the mux); any key or gamepad input stops it."""
+    DIR = os.path.expanduser('~/calib')
+    RESULT = re.compile(r'run (\d+) at ([\d.]+) m/s')
+    NUM = {'offset': re.compile(r'servo_offset\s+[-\d.]+ -> ([-\d.]+)'),
+           'gain': re.compile(r'servo_gain\s+[-\d.]+ -> ([-\d.]+)'),
+           'erpm': re.compile(r'speed_to_erpm_gain about (\d+)')}
+
+    def __init__(self):
+        self.p = None; self.kind = ''; self.t0 = 0.0; self.log = ''; self.last_stop = ''
+        self.lock = threading.Lock()
+
+    def running(self):
+        with self.lock: return self.p is not None and self.p.poll() is None
+
+    def start(self, kind, targets=()):
+        if self.running(): return False, 'a calibration job is already running'
+        if SUP.engaged(): return False, 'self-driving is engaged: stop it first'
+        cmds = {'sweep': [os.path.join(self.DIR, 'sweep_go.sh')] + ['%.2f' % t for t in targets],
+                'return': [os.path.join(self.DIR, 'return_go.sh')],
+                'save': ['python3', os.path.join(self.DIR, 'return_start.py'), '--save']}
+        if kind not in cmds: return False, 'unknown job'
+        if not os.path.exists(cmds[kind][-1] if kind != 'sweep' else cmds[kind][0]):
+            return False, 'calibration scripts are not in ~/calib on the car'
+        log = os.path.join(self.DIR, 'pilot_%s_%s.log' % (kind, time.strftime('%Y%m%d_%H%M%S')))
+        env = dict(os.environ, CALIB_FROM_PILOT='1', PYTHONUNBUFFERED='1')
+        with self.lock:
+            with open(log, 'w') as f:
+                self.p = subprocess.Popen(cmds[kind], cwd=self.DIR, stdout=f, stderr=subprocess.STDOUT,
+                                          stdin=subprocess.DEVNULL, env=env, start_new_session=True)
+            self.kind, self.t0, self.log, self.last_stop = kind, time.time(), log, ''
+        return True, ' '.join(cmds[kind])
+
+    def stop(self, why):
+        with self.lock: p = self.p
+        if p is None or p.poll() is not None: return
+        self.last_stop = why
+        try: os.killpg(p.pid, signal.SIGTERM)
+        except ProcessLookupError: return
+        def reap():
+            try: p.wait(6)
+            except subprocess.TimeoutExpired:
+                try: os.killpg(p.pid, signal.SIGKILL)
+                except ProcessLookupError: pass
+        threading.Thread(target=reap, daemon=True).start()
+
+    def status(self):
+        with self.lock: p, kind, t0, log = self.p, self.kind, self.t0, self.log
+        run = p is not None and p.poll() is None
+        lines = []
+        if log:
+            try:
+                with open(log, errors='replace') as f: lines = f.read().splitlines()[-600:]
+            except OSError: pass
+        lines = [l for l in lines if l.strip() and 'arning' not in l]
+        results, speed = [], None
+        for l in lines:
+            m = self.RESULT.search(l)
+            if m: speed = float(m.group(2)); continue
+            if 'servo_offset' in l and 'done:' in l and speed is not None:   # sweep_go.sh's summary line
+                r = {'speed': speed}
+                for k, rx in self.NUM.items():
+                    mm = rx.search(l); r[k] = float(mm.group(1)) if mm else None
+                results.append(r); speed = None
+        code = None if p is None or run else p.returncode
+        return {'running': run, 'kind': kind, 'secs': round(time.time() - t0) if t0 else 0, 'code': code,
+                'last_stop': self.last_stop, 'lines': lines[-14:], 'results': results,
+                'has_start': os.path.exists(os.path.join(self.DIR, 'start_ref.json'))}
+
+
 SUP = PA.Supervisor()          # raceline_mpc process + its stop conditions
 JOB = PA.Job()                 # track conversion / raceline optimization
+CAL = Calib()                  # unattended calibration (sweep / back to start / set start)
 NODE = [None]                  # the running WebPilot, for handlers that need ROS
 
 
@@ -140,6 +216,26 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><title>AtlasCar pilo
 overrides the policy (the mux gives teleop priority). Closing this tab stops the car.</div>
 
 <section>
+<h3>Calibration (drives on its own)</h3>
+<label>speeds <input id="cspeeds" type="text" value="1.1 1.3 1.5" style="width:110px"> m/s, one run each</label>
+<div style="margin-top:4px">
+  <button id="cgo" style="background:#264;border-color:#4a7">RUN CALIBRATION</button>
+  <button id="cstop" style="background:#722;border-color:#c55;font-weight:700">STOP</button>
+</div>
+<div style="margin-top:4px">
+  <button id="cret">back to start</button>
+  <button id="csave" title="record where the car stands now as the start spot">set start here</button>
+</div>
+<div id="cst" style="font-size:12px;color:#9c9;margin-top:4px">-</div>
+<div id="cres" style="font:11px ui-monospace,Menlo,monospace;color:#cde;margin-top:4px"></div>
+<div id="clog" style="white-space:pre-wrap;font:11px ui-monospace,Menlo,monospace;color:#9c9;max-height:130px;overflow:auto;background:#0a0a0a;padding:4px;border-radius:4px;margin-top:4px"></div>
+<div style="font-size:11px;color:#999;margin-top:6px">Clear, straight hallway (about 2.5 m wide, 10 m
+long). Point the car along it and press "set start here" once. Each speed drives 5-8 m down the hallway,
+then the car backs up to the start by itself. STOP, Space/Esc or any key or gamepad input stops it.
+It runs on the car, so closing this tab does not stop it.</div>
+</section>
+
+<section>
 <h3>Goal policy (distilled student)</h3>
 <label>goal <input id="pinstr" type="text" placeholder="turn left, then go straight to the end and stop" style="width:290px"></label>
 <label>goal x,y <input id="pgoal" type="text" placeholder="map m, e.g. 3.5,-1.2" style="width:120px"></label>
@@ -198,9 +294,18 @@ $('vq').onchange=()=>{const low=$('vq').value==='low';
 // ── video: on-camera H.264/H.265, decoded here with WebCodecs. MJPEG when that is not possible.
 // Frames on /vstream: u32 length | u8 flags (bit 0 = keyframe) | Annex-B access unit.
 const VCFG={h264:{codec:'avc1.42E01F',optimizeForLatency:true},h265:{codec:'hev1.1.6.L93.B0',optimizeForLatency:true}};
-let vmode='';
-function useMjpeg(why){ if(vmode==='mjpeg')return; vmode='mjpeg'; $('vc').style.display='none';
-  $('v').style.display=''; $('v').src='/stream'; $('vcodec').textContent='video: MJPEG'+(why?' ('+why+')':''); }
+let vmode='', vretry=null;
+// MJPEG is only the fallback. When the camera is not encoding (yet), or the stream dropped, keep
+// checking: as soon as /status reports on-camera video again, switch back to it (10/9: a page
+// loaded during a camera stall stayed on MJPEG for good). No retry when this browser cannot decode it.
+function useMjpeg(why,retry){
+  if(vmode!=='mjpeg'){ vmode='mjpeg'; $('vc').style.display='none'; $('v').style.display=''; $('v').src='/stream'; }
+  $('vcodec').textContent='video: MJPEG'+(why?' ('+why+')':'');
+  if(retry&&!vretry) vretry=setInterval(async()=>{
+    let st={}; try{ st=await (await fetch('/status')).json(); }catch(e){ return; }
+    if(st.vcodec){ clearInterval(vretry); vretry=null; vmode=''; startVideo(); }
+  },3000);
+}
 async function decoders(){ const out={};
   if(!('VideoDecoder' in window)) return out;
   const want={h264:VCFG.h264.codec,h265:VCFG.h265.codec,av1:'av01.0.04M.08',vp9:'vp09.00.10.08'};
@@ -210,10 +315,10 @@ async function startVideo(){
   const caps=await decoders(); let st={};
   try{ st=await (await fetch('/status')).json(); }catch(e){}
   const codec=st.vcodec;
-  if(!codec) return useMjpeg('camera not encoding');
+  if(!codec) return useMjpeg('camera not encoding: retrying',true);
   if(!caps[codec]) return useMjpeg('browser cannot decode '+codec.toUpperCase());
-  let r; try{ r=await fetch('/vstream',{cache:'no-store'}); }catch(e){ return useMjpeg('no stream'); }
-  if(!r.ok||!r.body) return useMjpeg('no stream');
+  let r; try{ r=await fetch('/vstream',{cache:'no-store'}); }catch(e){ return useMjpeg('no stream: retrying',true); }
+  if(!r.ok||!r.body) return useMjpeg('no stream: retrying',true);
   vmode='h'; $('v').src=''; $('v').style.display='none';
   const cv=$('vc'), cx=cv.getContext('2d'); cv.style.display='';
   let nbytes=0, nframes=0, t0=performance.now(), ts=0, started=false, dead=false;
@@ -305,7 +410,32 @@ function renderAuto(s){
     r.recording?`● REC ${r.episode_id}  ${r.frames} frames  ${r.secs}s  “${r.instruction}”`:
     `idle · ${r.episodes||0} episodes in ${r.root||'~/episodes'}`;
   $('recst').style.color=r.recording?'#f88':'#9c9';
+  renderCalib(s.calib);
 }
+// ── unattended calibration: sweep (runs + back to start between them), back to start, set start ──
+let calRunning=false;
+function renderCalib(c){
+  if(!c)return; calRunning=c.running;
+  const what={sweep:'calibration runs',return:'backing up to the start',save:'recording the start'}[c.kind]||c.kind;
+  $('cst').textContent=c.running?('RUNNING: '+what+' ('+c.secs+' s)'):
+    (c.last_stop?('stopped: '+c.last_stop):(c.kind?('finished: '+what+(c.code?' (exit '+c.code+')':'')):''))+
+    (c.running?'':(c.has_start?' · start spot set':' · no start spot yet: press "set start here"'));
+  $('cst').style.color=c.running?'#fd6':(c.code?'#e87':'#9c9');
+  $('cres').innerHTML=(c.results||[]).map(r=>`${r.speed.toFixed(1)} m/s: centre ${r.offset!=null?r.offset.toFixed(4):'-'}`+
+    ` gain ${r.gain!=null?r.gain.toFixed(4):'-'} eRPM ${r.erpm!=null?r.erpm:'-'}`).join('<br>');
+  if(c.lines&&c.lines.length){$('clog').textContent=c.lines.join('\n');$('clog').scrollTop=1e6;}
+  if(c.running){$('autobadge').textContent='CALIBRATING — STOP, Space or Esc stops it';$('autobadge').style.display='block';}
+  else if(!auto){$('autobadge').textContent='SELF-DRIVING — press Space or Esc to stop';}
+}
+function calPost(path,body){return fetch(path,{method:'POST',body:JSON.stringify(body||{})}).then(r=>r.json())
+  .then(s=>{if(s.error)alert(s.error);else renderAuto(s);}).catch(()=>alert('no answer from the car'));}
+$('cgo').onclick=()=>{const sp=$('cspeeds').value.trim();
+  if(!confirm('Run the calibration at '+sp+' m/s?\nFor each speed the car drives on its own 5-8 m down the hallway, then backs up to the start.\nKeep the hallway clear. STOP, Space/Esc or any key stops it.'))return;
+  calPost('/calib/start',{targets:sp});};
+$('cret').onclick=()=>{if(!confirm('Back the car up to the start spot? It reverses on its own at about 0.8 m/s.'))return; calPost('/calib/return');};
+$('csave').onclick=()=>{if(!confirm('Record where the car stands now as the start spot?'))return; calPost('/calib/save');};
+$('cstop').onclick=()=>calPost('/calib/stop');
+addEventListener('keydown',e=>{if(((e.key===' '&&e.target.tagName!=='INPUT')||e.key==='Escape')&&calRunning&&!auto){e.preventDefault();$('cstop').onclick();}});
 function rec(path,body){fetch(path,{method:'POST',body:JSON.stringify(body)}).then(r=>r.json()).then(renderAuto);}
 $('recstart').onclick=()=>rec('/rec/start',{instruction:$('instr').value});
 $('recgood').onclick=()=>rec('/rec/stop',{label:'good'});
@@ -505,7 +635,23 @@ class H(BaseHTTPRequestHandler):
         if u.path == '/auto/hb':
             SUP.heartbeat(); self._json(auto_status()); return
         if u.path == '/auto/stop':
-            SUP.stop('stop button'); self._json(auto_status()); return
+            SUP.stop('stop button'); CAL.stop('stop button'); self._json(auto_status()); return
+
+        # ── unattended calibration ──────────────────────────────────────────────
+        if u.path in ('/calib/start', '/calib/return', '/calib/save', '/calib/stop'):
+            if u.path == '/calib/stop':
+                CAL.stop('stop button'); self._json(auto_status()); return
+            if u.path == '/calib/start':
+                try:
+                    raw = str(json.loads(body.decode() or '{}').get('targets', '')).replace(',', ' ')
+                    targets = [float(x) for x in raw.split()]
+                except (ValueError, TypeError, AttributeError): targets = []
+                if not targets or len(targets) > 8 or not all(0.8 <= t <= 2.0 for t in targets):
+                    self._json({'error': 'speeds: 1 to 8 numbers between 0.8 and 2.0 m/s, e.g. 1.1 1.3 1.5'}, 400); return
+                ok, msg = CAL.start('sweep', targets)
+            else:
+                ok, msg = CAL.start('return' if u.path == '/calib/return' else 'save')
+            self._json(auto_status() if ok else {'error': msg}, 200 if ok else 409); return
         if u.path == '/auto/odom':
             try: topic = str(json.loads(body.decode())['odom_topic'])[:80]
             except (ValueError, KeyError, TypeError): self._json({'error': 'bad topic'}, 400); return
@@ -513,6 +659,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == '/auto/engage':
             try: d = json.loads(body.decode())
             except ValueError: self._json({'error': 'bad json'}, 400); return
+            if CAL.running():
+                self._json({'error': 'a calibration job is running: stop it first'}, 409); return
             with S['lock']: odom = S['odom_topic']; fusion_live = (time.time() - S['seen'].get('depth', 0)) < 1.0
             scan_topic = '/scan_fused' if fusion_live else '/scan'    # depth-augmented when available
             if d.get('mode') == 'policy':                              # mode 3: distilled student
@@ -615,6 +763,7 @@ def auto_status(raceline=None):
     with S['lock']:
         rec = dict(S['rec']); rec['alive'] = (time.time() - S['rec_t']) < 2.0 if S['rec_t'] else False
     st['rec'] = rec                                   # episode logger state, if it is running
+    st['calib'] = CAL.status()                        # unattended calibration job
     return st
 
 
@@ -770,10 +919,13 @@ class WebPilot(Node):
             if self.link_up: self.link_up = False; self.get_logger().warn('no commands: neutral (car stops)')
         self.pub.publish(msg)
         # brake-to-zero on the teleop topic, but only when a remote pilot has been present,
-        # nobody is holding the dead-man, and no policy is driving
+        # nobody is holding the dead-man, and no policy or calibration is driving
         armed = bool(msg.buttons[4]) if len(msg.buttons) > 4 else False
         now = time.time()
-        if (self.hold_zero and cmd is not None and not armed and not SUP.engaged()
+        calib = CAL.running()
+        if calib and armed:                       # someone took over with keys or the gamepad
+            CAL.stop('manual override'); self.get_logger().warn('calibration stopped: manual override')
+        if (self.hold_zero and cmd is not None and not armed and not SUP.engaged() and not calib
                 and now - self.last_hold >= 0.05):
             self.last_hold = now
             z = AckermannDriveStamped(); z.header.stamp = self.get_clock().now().to_msg()
