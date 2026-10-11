@@ -155,3 +155,19 @@ compares the lidar's own motion with the gyro and odometry (expect all agree).
   and backward (laser yaw offset or crabbing); return_start corrects for it (LIDAR_YAW).
 - The lidar sees this hallway's far end wall only from ~13 m; the scripted run lengths keep the car
   well short of it.
+
+## Demonstration recording for T13 (2026-10-11; tools written, not run on the car yet)
+- run_remote.sh starts episode_logger idle. The pilot page's recording panel: type the instruction
+  ("follow the hallway to the doors and stop"), REC, drive, then "stop: good" / "stop: bad" /
+  discard. Episodes go to ~/episodes/<ep_id>/ (meta.json, frames/*.jpg, sync.npz, hires.npz).
+- Set the car's clock first (no RTC battery): episode ids and every stamp come from it.
+- Then a 20 s test episode and `python3 ~/calib/check_episode.py ~/episodes` (copy of
+  tools/check_episode.py). Every stream should read N/N frames; it also flags an unset clock and
+  totals the minutes per label (T13 asks for 30).
+- "odometry MISSING": run_remote.sh points the logger at /vesc/odom, which only the vesc-uart
+  backend publishes; the bringup's vesc_to_odom publishes /odom. `~/restart_logger.sh` (copy of
+  hardware/scripts/restart_logger.sh) restarts the logger on whichever of the two has a publisher;
+  ODOM_TOPIC=/odom forces it.
+- On the laptop: rsync ~/episodes off the car, then
+  `python3 tools/episodes_to_lerobot.py ~/episodes --out ~/lerobot/atlascar_hallway --only good`
+  (needs pandas, pyarrow and OpenCV; ~/f1tenth_train/venv has them).
