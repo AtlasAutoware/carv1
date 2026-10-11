@@ -41,6 +41,10 @@ except Exception:                       # pragma: no cover — not on dev machin
     dai = None
 
 
+class CameraStalled(RuntimeError):
+    """RGB or on-camera video stopped arriving (the node's watchdog); main() reopens the camera."""
+
+
 def build_pipeline(width, height, fps, imu_hz, yolo_blob='', yolo_conf=0.4,
                    yolo_size=416, video_kbps=0, video_keyframe=15,
                    video_codec='h264'):
@@ -146,10 +150,16 @@ def _make_node():
             self.declare_parameter('yolo_conf', 0.4)
             self.declare_parameter('yolo_size', 416)
             self.declare_parameter('car_width', 0.30)  # m, for back-projection
-            self.declare_parameter('video_kbps', 0)     # >0: on-camera video for the pilot page
-            self.declare_parameter('video_codec', 'h264')  # h264 or h265 (the encoder has no AV1)
+            # On-camera video for the pilot page: H.265 (HEVC) at 1 Mbit/s by default since 10/9
+            # (was off unless run_remote.sh asked for it). video_kbps 0 turns it off.
+            self.declare_parameter('video_kbps', 1000)
+            self.declare_parameter('video_codec', 'h265')  # h265 (hevc) or h264 (the encoder has no AV1)
             self.declare_parameter('video_keyframe', 15)
             self.declare_parameter('video_topic', '/oakd/video')
+            # Reconnect the camera when RGB or video frames stop for this long (0 = never). 10/9: an
+            # XLink error ("no request for this response: XLINK_READ_REL_RESP") stopped RGB and
+            # H.265 for good while the IMU kept running.
+            self.declare_parameter('stall_restart_s', 5.0)
             p = lambda n: self.get_parameter(n).value   # noqa: E731
             self.w, self.h = int(p('width')), int(p('height'))
             self.cam_frame = p('camera_frame')
@@ -201,6 +211,9 @@ def _make_node():
                     'on-device YOLO active (Myriad X VPU) -> /oakd/opponents_rel')
             self.create_timer(1.0 / (2.0 * float(p('fps'))), self._poll_rgb)
             self.create_timer(0.002, self._poll_imu)
+            self.stall_s = float(p('stall_restart_s'))
+            self.t_start = self.t_rgb = self.t_vid = time.monotonic()
+            self.create_timer(1.0, self._watchdog)
             self.get_logger().info(
                 f'oakd_camera ready — rgb {self.w}x{self.h}@{p("fps"):.0f} '
                 f'imu @{p("imu_hz")}Hz ({self.device.getMxId()})')
@@ -231,8 +244,20 @@ def _make_node():
             except Exception:
                 return None
 
+        def _watchdog(self):
+            """RGB or on-camera video silent for stall_restart_s (after a 10 s start-up grace):
+            raise CameraStalled, and main() reopens the camera in this process."""
+            now = time.monotonic()
+            if self.stall_s <= 0 or now - self.t_start < 10.0:
+                return
+            stale = [n for n, t, on in (('rgb', self.t_rgb, True), (self.codec, self.t_vid, self.q_h264 is not None))
+                     if on and now - t > self.stall_s]
+            if stale:
+                raise CameraStalled('no %s frames for %.0f s' % ('/'.join(stale), self.stall_s))
+
         def _poll_h264(self):
             for pkt in self.q_h264.tryGetAll():
+                self.t_vid = time.monotonic()
                 data = pkt.getData().tobytes()
                 lat = self._age_ms(pkt)
                 if lat is not None:
@@ -267,6 +292,7 @@ def _make_node():
             frame = self.q_rgb.tryGet()
             if frame is None:
                 return
+            self.t_rgb = time.monotonic()
             lat = self._age_ms(frame)
             if lat is not None:
                 self.stats['rgb_lat'].append(lat)
@@ -339,16 +365,38 @@ def _make_node():
 def main(args=None):
     rclpy, NodeCls = _make_node()
     rclpy.init(args=args)
-    node = None
+    restarts, failed = 0, 0
     try:
-        node = NodeCls()
-        rclpy.spin(node)
-    except (KeyboardInterrupt, RuntimeError):
-        pass
+        while rclpy.ok():
+            node = None
+            try:
+                node = NodeCls()
+                failed = 0
+                rclpy.spin(node)
+                break
+            except CameraStalled as e:              # reopen the camera, same process and topics
+                restarts += 1
+                print(f'[oakd_camera] {e}: reconnecting the camera (restart {restarts})', flush=True)
+            except KeyboardInterrupt:
+                break
+            except RuntimeError as e:               # first start: give up as before; after a
+                failed += 1                         # stall the camera may still be rebooting
+                if not restarts or failed > 30:
+                    break
+                print(f'[oakd_camera] reconnect failed ({e}); trying again', flush=True)
+            finally:
+                if node is not None:
+                    node.shutdown()
+                    try:
+                        node.destroy_node()
+                    except Exception:
+                        pass
+            time.sleep(2.0)
     finally:
-        if node is not None:
-            node.shutdown()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

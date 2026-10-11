@@ -92,6 +92,10 @@ oakd_camera:
     yolo_blob: ''               # compiled .blob -> YOLO on the camera's VPU
     yolo_conf: 0.4              # (blobconverter from the trained ONNX)
     yolo_size: 416
+    video_kbps: 1000            # on-camera video for the pilot page (0 = off)
+    video_codec: 'h265'         # HEVC by default (10/9); 'h264' for browsers without an HEVC decoder
+    video_keyframe: 15
+    stall_restart_s: 5.0        # reopen the camera when RGB or video stops this long (0 = never)
 
 camera_perception:
   ros__parameters:
