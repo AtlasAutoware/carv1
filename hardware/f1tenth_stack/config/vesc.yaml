@@ -16,7 +16,7 @@
     #   odometry sign measured: forward travel needs a POSITIVE gain under vesc_to_odom.
     # servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset
     steering_angle_to_servo_gain: -0.9175
-    steering_angle_to_servo_offset: 0.6705
+    steering_angle_to_servo_offset: 0.680    # 2026-10-09: 12 runs at 0.8-1.5 m/s measured 0.6785-0.684 (was 0.6705)
 
     # --- motor command mode (ackermann_to_vesc) ---
     # "erpm"    : closed-loop SPEED with a floor (min_erpm..max_erpm). Any throttle spins the
@@ -52,7 +52,7 @@
     position_min: 0.0
     position_max: 0.0
     servo_min: 0.15
-    servo_max: 0.90   # 2026-10-05: centre is now 0.6705, so right lock is only ~0.25 rad vs ~0.56 left
+    servo_max: 0.90   # 2026-10-09: centre is now 0.680, so right lock is only ~0.24 rad vs ~0.58 left
                       # (re-centre the servo horn a spline tooth to even it out). Older note: was 0.85;
                       # center offset 0.5304 sat right of mid, so right throw
                       # clipped early (0.26 rad vs 0.31 left). 0.90 -> ~0.30 rad, symmetric.

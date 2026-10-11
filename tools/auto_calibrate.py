@@ -587,7 +587,10 @@ class Run:
                 continue
             _, d, T = st
             f, l, r = self.clear()
-            if abs(self.psi) > 0.15:
+            # turn back toward the hallway axis first. A fast run does that from 3 deg: its arcs
+            # turn 15-25 deg each (10/9, 1.5 m/s: +7.7 deg was left alone, the next arc went the same
+            # way, and the car ended 31 deg off the hallway with its closing arc blocked by the wall)
+            if abs(self.psi) > (0.05 if self.A.fast else 0.15):
                 first = -math.copysign(d, self.psi)   # turn back toward the hallway axis first
             else:
                 first = d if l >= r else -d       # otherwise toward the side with more room
