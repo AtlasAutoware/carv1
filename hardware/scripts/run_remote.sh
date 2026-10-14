@@ -103,6 +103,21 @@ if [ "${LOCALIZE:-on}" != "off" ]; then
         SLAM_CFG="$HOME/atlas_ws/src/atlasautoware/config/slam_toolbox.yaml"
         ros2 run slam_toolbox async_slam_toolbox_node --ros-args --params-file "$SLAM_CFG" \
             > /tmp/slam.log 2>&1 &
+        # slam_toolbox 2.8 (the Jazzy package installed since September) is a lifecycle node: started
+        # like this it stays "unconfigured" and never publishes /map or map->odom, so pose_relay waits
+        # forever and nothing can drive itself (found 2026-10-14). Configure and activate it once it is up;
+        # an older, non-lifecycle slam_toolbox just makes this loop give up after 30 s.
+        ( for i in $(seq 1 30); do
+              st=$(ros2 lifecycle get /slam_toolbox 2>/dev/null)
+              case "$st" in
+                  active*) break ;;
+                  unconfigured*) ros2 lifecycle set /slam_toolbox configure >/dev/null 2>&1 &&
+                                 ros2 lifecycle set /slam_toolbox activate >/dev/null 2>&1 &&
+                                 echo "run_remote: slam_toolbox configured and activated" >> /tmp/slam.log
+                                 break ;;
+              esac
+              sleep 1
+          done ) &
         sleep 3
         ros2 run f1tenth_gym_ros pose_relay > /tmp/pose_relay.log 2>&1 &
         echo "localization: SLAM (building a map as you drive) -> /pf/pose/odom"
@@ -132,7 +147,7 @@ if [ "${1:-}" = "lowbw" ]; then VID="-p width:=320 -p quality:=45 -p fps:=10.0";
 ros2 run f1tenth_gym_ros web_pilot --ros-args -p timeout:=${PILOT_TIMEOUT:-0.25} -p image_topic:=$CAM_TOPIC $VID &
 # demonstration recorder: idle until the page (or /episode/cmd) starts an episode
 ros2 run f1tenth_gym_ros episode_logger --ros-args -p root:=${EPISODE_ROOT:-$HOME/episodes} \
-    -p image_topic:=$CAM_TOPIC -p odom_topic:=/vesc/odom -p imu_topic:=/oakd/imu \
+    -p image_topic:=$CAM_TOPIC -p odom_topic:=${ODOM_TOPIC:-/odom} -p imu_topic:=/oakd/imu \
     > /tmp/episode_logger.log 2>&1 &
 
 echo "──────────────────────────────────────────────────────────────"

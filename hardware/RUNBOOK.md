@@ -156,7 +156,7 @@ compares the lidar's own motion with the gyro and odometry (expect all agree).
 - The lidar sees this hallway's far end wall only from ~13 m; the scripted run lengths keep the car
   well short of it.
 
-## Demonstration recording for T13 (2026-10-11; tools written, not run on the car yet)
+## Demonstration recording for T13 (2026-10-11; first test on the car 10/14: a stationary 23 s episode, every stream 216/216)
 - run_remote.sh starts episode_logger idle. The pilot page's recording panel: type the instruction
   ("follow the hallway to the doors and stop"), REC, drive, then "stop: good" / "stop: bad" /
   discard. Episodes go to ~/episodes/<ep_id>/ (meta.json, frames/*.jpg, sync.npz, hires.npz).
@@ -164,10 +164,16 @@ compares the lidar's own motion with the gyro and odometry (expect all agree).
 - Then a 20 s test episode and `python3 ~/calib/check_episode.py ~/episodes` (copy of
   tools/check_episode.py). Every stream should read N/N frames; it also flags an unset clock and
   totals the minutes per label (T13 asks for 30).
-- "odometry MISSING": run_remote.sh points the logger at /vesc/odom, which only the vesc-uart
-  backend publishes; the bringup's vesc_to_odom publishes /odom. `~/restart_logger.sh` (copy of
-  hardware/scripts/restart_logger.sh) restarts the logger on whichever of the two has a publisher;
-  ODOM_TOPIC=/odom forces it.
+- "odometry MISSING": until 10/14 run_remote.sh pointed the logger at /vesc/odom, which only the
+  vesc-uart backend publishes; the bringup's vesc_to_odom publishes /odom. run_remote.sh now uses /odom
+  (ODOM_TOPIC=... overrides it). `~/restart_logger.sh` (copy of hardware/scripts/restart_logger.sh)
+  still restarts just the logger, on whichever of the two has a publisher.
 - On the laptop: rsync ~/episodes off the car, then
   `python3 tools/episodes_to_lerobot.py ~/episodes --out ~/lerobot/atlascar_hallway --only good`
   (needs pandas, pyarrow and OpenCV; ~/f1tenth_train/venv has them).
+
+## SLAM has to be activated (2026-10-14)
+- slam_toolbox 2.8.5 (Jazzy) is a lifecycle node. Started with `ros2 run` it stays "unconfigured": no /map,
+  no map->odom, pose_relay keeps waiting, and nothing can drive itself (it worked on 9/3 with an older package).
+  run_remote.sh now configures and activates it after starting it; `ros2 lifecycle get /slam_toolbox` should
+  say "active [3]". By hand: `ros2 lifecycle set /slam_toolbox configure`, then `... activate`.
